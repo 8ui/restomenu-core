@@ -1,10 +1,10 @@
 {
-  "name": "@resto-menu/core",
+  "name": "@restomenu/core",
   "version": "0.0.1",
   "private": false,
   "publishConfig": {
     "registry": "https://gitlab.com/api/v4/projects/62384896/packages/npm/",
-    "@resto-menu:registry": "https://gitlab.com/api/v4/projects/62384896/packages/npm/"
+    "@restomenu:registry": "https://gitlab.com/api/v4/projects/62384896/packages/npm/"
   },
   "type": "module",
   "description": "Shared domain logic, types, and utilities for Restomenu applications",
