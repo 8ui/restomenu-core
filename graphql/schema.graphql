@@ -1,0 +1,987 @@
+type Query {
+  brand(input: BrandInput!): Brand!
+  brandBySlug(input: BrandBySlugInput!): Brand!
+  brands(input: BrandsInput!): [Brand!]
+  category(input: CategoryInput!): Category!
+  categories(input: CategoriesInput!): [Category!]!
+  categoriesCount(input: CategoriesCountInput!): Int!
+  city(input: CityInput!): City!
+  cities(input: CitiesInput!): [City!]
+  employee(input: EmployeeInput!): Employee!
+  employees(input: EmployeesInput!): [Employee!]
+  order(input: OrderInput!): OrdersUnion!
+  orders(input: OrdersInput!): [OrdersUnion!]!
+  point(input: PointInput!): Point!
+  points(input: PointsInput!): [Point!]
+  product(input: ProductInput!): Product!
+  products(input: ProductsInput!): [Product!]!
+  productTags(input: ProductTagsInput!): [ProductTag!]!
+  productVariantProperty(
+    input: ProductVariantPropertyInput!
+  ): ProductVariantProperty!
+  productVariantProperties(
+    input: ProductVariantPropertiesInput!
+  ): [ProductVariantProperty!]!
+  me: UserTypesUnion!
+}
+
+input BrandInput {
+  id: Uuid!
+}
+
+scalar Uuid
+
+type Brand {
+  id: Uuid!
+  accountId: Uuid!
+  name: String!
+  slug: String!
+  isActive: Boolean!
+  brandCities: [BrandCity!]
+  cities: [City!]
+  points(input: PointsForBrandInput): [Point!]
+}
+
+type BrandCity {
+  brandId: Uuid!
+  cityId: Uuid!
+  priority: Int!
+  brand: Brand!
+  city: City!
+}
+
+type City {
+  id: Uuid!
+  name: String!
+  brands: [Brand!]
+  points(input: PointsForCityInput!): [Point!]
+}
+
+input PointsForCityInput {
+  brandId: Uuid!
+  filter: PointsForCityFilterInput
+}
+
+input PointsForCityFilterInput {
+  ids: [Uuid!]
+  isActive: Boolean
+}
+
+type Point {
+  id: Uuid!
+  brandId: Uuid!
+  cityId: Uuid!
+  address: String!
+  name: String
+  priority: Int!
+  isActive: Boolean!
+  brand: Brand!
+  city: City!
+}
+
+input PointsForBrandInput {
+  filter: PointsForBrandFilterInput
+}
+
+input PointsForBrandFilterInput {
+  ids: [Uuid!]
+  citiesId: [Uuid!]
+  isActive: Boolean
+}
+
+input BrandBySlugInput {
+  slug: String!
+}
+
+input BrandsInput {
+  filter: BrandsFilterInput!
+}
+
+input BrandsFilterInput {
+  ids: [Uuid!]
+  accountsId: [Uuid!]
+  isActive: Boolean
+}
+
+input CategoryInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+type Category {
+  id: Uuid!
+  parentId: Uuid
+  slug: String!
+  name: String!
+  imageUrl: String
+  priority: Int!
+  isActive: Boolean!
+  children: [Category!]!
+  parent: Category
+  brandId: Uuid!
+  pointBinds: [CategoryPointBind!]!
+  productsCount(input: ProductsCountForCategoryInput): Int!
+  products(input: ProductsForCategoryInput): [Product!]!
+}
+
+type CategoryPointBind {
+  categoryId: Uuid!
+  pointId: Uuid!
+  orderType: OrderType!
+}
+
+enum OrderType {
+  PRE_ORDER
+  ON_TABLE
+  DELIVERY
+  PICKUP
+}
+
+input ProductsCountForCategoryInput {
+  filter: ProductsForCategoryFilterInput
+  isVariantsGroup: Boolean
+}
+
+input ProductsForCategoryFilterInput {
+  ids: [Uuid!]
+  isActive: Boolean
+  pointBinds: [ProductPointBindInput!]
+
+  """
+  Содержит все теги
+  """
+  tagsIdAll: [Uuid!]
+
+  """
+  Не содержит все теги
+  """
+  tagsIdNotAll: [Uuid!]
+
+  """
+  Содержит хотя бы 1 тег
+  """
+  tagsIdAny: [Uuid!]
+
+  """
+  Не содержит хотя бы 1 тег
+  """
+  tagsIdNotAny: [Uuid!]
+}
+
+input ProductPointBindInput {
+  pointId: Uuid!
+  orderType: OrderType!
+}
+
+input ProductsForCategoryInput {
+  filter: ProductsForCategoryFilterInput
+  variantsGroupSimpleStrategy: ProductVariantsGroupSimpleStrategy
+  variantsGroupByPrice: ProductVariantsGroupByPriceInput
+  sortByCategoryPriority: Sort
+  sortByPrice: ProductSortByPriceInput
+  isVariantsGroup: Boolean
+}
+
+enum ProductVariantsGroupSimpleStrategy {
+  MAIN
+  PRIORITY_MIN
+  PRIORITY_MAX
+}
+
+input ProductVariantsGroupByPriceInput {
+  type: MinMax!
+  pointBind: ProductPointBindInput!
+}
+
+enum MinMax {
+  MIN
+  MAX
+}
+
+enum Sort {
+  ASC
+  DESC
+}
+
+input ProductSortByPriceInput {
+  sort: Sort!
+  pointBind: ProductPointBindInput!
+}
+
+type Product {
+  id: Uuid!
+  slug: String!
+  name: String!
+  isActive: Boolean!
+  description: String
+  carbohydrates: Int
+  calories: Int
+  fats: Int
+  protein: Int
+  unitValue: String
+  unit: ProductUnit
+  brandId: Uuid!
+  tags: [ProductTag!]!
+  tagBinds: [ProductTagBind!]!
+  pointBinds: [ProductPointBind!]!
+  categoryBinds: [ProductCategoryBind!]!
+  images: [ProductImage!]!
+  priceSettings: ProductPriceSettings!
+  pricePoint(input: ProductPricePointInput!): Int53
+  categories(input: CategoriesForProductInput): [Category!]!
+  variantGroup: ProductVariantGroup
+  variantSettings: ProductVariantSettings
+  variants: [Product!]!
+}
+
+enum ProductUnit {
+  GRAM
+  MILLILITERS
+  PORTION
+  BOTTLES
+  PIECES
+  KILOGRAM
+  LITERS
+}
+
+type ProductTag {
+  id: Uuid!
+  name: String!
+}
+
+type ProductTagBind {
+  tagId: Uuid!
+  priority: Int!
+}
+
+type ProductPointBind {
+  pointId: Uuid!
+  orderType: OrderType!
+}
+
+type ProductCategoryBind {
+  categoryId: Uuid!
+  priority: Int!
+}
+
+type ProductImage {
+  fileId: Uuid!
+  priority: Int!
+  url: String!
+}
+
+type ProductPriceSettings {
+  price: Int53!
+  priceOrderTypes: [ProductPriceSettingsOrderType!]!
+}
+
+scalar Int53
+
+type ProductPriceSettingsOrderType {
+  orderType: OrderType!
+  priceCommon: Int53
+  priceCities: [ProductPriceSettingsCity!]!
+  pricePoints: [ProductPriceSettingsPoint!]!
+}
+
+type ProductPriceSettingsCity {
+  cityId: Uuid!
+  price: Int53!
+}
+
+type ProductPriceSettingsPoint {
+  pointId: Uuid!
+  price: Int53!
+}
+
+input ProductPricePointInput {
+  pointId: Uuid!
+  orderType: OrderType!
+}
+
+input CategoriesForProductInput {
+  filter: CategoriesForProductFilterInput
+}
+
+input CategoriesForProductFilterInput {
+  ids: [Uuid!]
+  parentsId: [Uuid!]
+  isFirstLevel: Boolean
+  isActive: Boolean
+  pointBinds: [CategoryPointBindInput!]
+}
+
+input CategoryPointBindInput {
+  pointId: Uuid!
+  orderType: OrderType!
+}
+
+type ProductVariantGroup {
+  variantPropertyBinds: [ProductVariantGroupVariantPropertyBind!]!
+}
+
+type ProductVariantGroupVariantPropertyBind {
+  variantPropertyId: Uuid!
+  priority: Int!
+}
+
+type ProductVariantSettings {
+  variantPropertyBinds: [ProductVariantSettingsVariantPropertyBind!]!
+  priority: Int!
+  isMain: Boolean!
+}
+
+type ProductVariantSettingsVariantPropertyBind {
+  variantPropertyId: Uuid!
+  variantPropertyValueId: Uuid!
+}
+
+input CategoriesInput {
+  brandId: Uuid!
+  filter: CategoriesFilterInput
+}
+
+input CategoriesFilterInput {
+  ids: [Uuid!]
+  parentsId: [Uuid!]
+  isFirstLevel: Boolean
+  isActive: Boolean
+  pointBinds: [CategoryPointBindInput!]
+  productExists: CategoriesFilterProductExistsInput
+}
+
+input CategoriesFilterProductExistsInput {
+  ids: [Uuid!]
+  isActive: Boolean
+  pointBinds: [ProductPointBindInput!]
+  tagsIdAll: [Uuid!]
+  tagsIdNotAll: [Uuid!]
+  tagsIdAny: [Uuid!]
+  tagsIdNotAny: [Uuid!]
+}
+
+input CategoriesCountInput {
+  brandId: Uuid!
+  filter: CategoriesFilterInput
+}
+
+input CityInput {
+  id: Uuid!
+}
+
+input CitiesInput {
+  filter: CitiesFilterInput!
+}
+
+input CitiesFilterInput {
+  ids: [Uuid!]
+  brandsId: [Uuid!]
+}
+
+input EmployeeInput {
+  id: Uuid!
+}
+
+type Employee {
+  id: Uuid!
+  userId: ID!
+  accountId: Uuid!
+  role: EmployeeRole!
+  name: String!
+  brandsId: [Uuid!]
+  pointsId: [Uuid!]
+  isActive: Boolean!
+  user: User!
+}
+
+enum EmployeeRole {
+  MASTER
+  MANAGER
+}
+
+type User {
+  id: Uuid!
+  login: String!
+  name: String!
+  email: String
+  phone: Phone
+  employees(input: EmployeesForUserInput): [Employee!]
+}
+
+"""
+Должен соответствовать формату E.164 (+71111111111)
+"""
+scalar Phone
+
+input EmployeesForUserInput {
+  filter: EmployeesFilterInput
+}
+
+input EmployeesFilterInput {
+  ids: [Uuid!]
+  usersId: [Uuid!]
+  accountsId: [Uuid!]
+  brandsId: [Uuid!]
+  pointsId: [Uuid!]
+  roles: [EmployeeRole!]
+  isActive: Boolean
+}
+
+input EmployeesInput {
+  filter: EmployeesForUserFilterInput!
+}
+
+input EmployeesForUserFilterInput {
+  ids: [Uuid!]
+  accountsId: [Uuid!]
+  brandsId: [Uuid!]
+  pointsId: [Uuid!]
+  roles: [EmployeeRole!]
+  isActive: Boolean
+}
+
+input OrderInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+union OrdersUnion = OrderPreOrder
+
+type OrderPreOrder {
+  id: Uuid!
+  pointId: Uuid!
+  number: Int53!
+  type: OrderType!
+  status: OrderStatus!
+  comment: String
+  priceTotal: Int53!
+  personsNumber: Int
+  items: [OrderItem!]
+  brandId: Uuid!
+  creatorType: OrderCreatorType!
+  creatorId: Uuid!
+  dueTime: DateTime!
+  createdTime: DateTime!
+  restoplaceReserveId: ID
+  customerId: Uuid
+  customerName: String
+  customerPhone: Phone
+}
+
+enum OrderStatus {
+  NEW
+  ACCEPTED
+  PREPARED
+  READY
+  SUBMITTED
+  COMPLETE
+}
+
+type OrderItem {
+  id: Uuid!
+  productId: Uuid!
+  price: Int53!
+  quantity: Int!
+  name: String!
+  productVariantProperties: [OrderItemProductVariantProperty!]!
+  categories: [OrderItemCategory!]!
+  imageUrl: String
+  product: Product
+}
+
+type OrderItemProductVariantProperty {
+  productVariantPropertyId: Uuid!
+  productVariantPropertyName: String!
+  productVariantPropertyValueId: Uuid!
+  productVariantPropertyValueName: String!
+}
+
+type OrderItemCategory {
+  categoryId: Uuid!
+  categoryName: String!
+}
+
+enum OrderCreatorType {
+  EMPLOYEE
+  CUSTOMER
+}
+
+"""
+unix timestamp
+"""
+scalar DateTime
+
+input OrdersInput {
+  brandId: Uuid!
+  filter: OrdersFilterInput
+  sortStrategy: OrderSortStrategy
+  sort: Sort
+}
+
+input OrdersFilterInput {
+  ids: [Uuid!]
+  pointsId: [Uuid!]
+  types: [OrderType!]
+  statuses: [OrderStatus!]
+  dueTime: DateTimeRangeInput
+}
+
+input DateTimeRangeInput {
+  from: DateTime
+  to: DateTime
+}
+
+enum OrderSortStrategy {
+  DUE_TIME
+  NUMBER
+}
+
+input PointInput {
+  id: Uuid!
+  brandId: Uuid!
+}
+
+input PointsInput {
+  brandId: Uuid!
+  filter: PointsFilterInput
+}
+
+input PointsFilterInput {
+  ids: [Uuid!]
+  citiesId: [Uuid!]
+  isActive: Boolean
+}
+
+input ProductInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+input ProductsInput {
+  brandId: Uuid!
+  variantsGroupSimpleStrategy: ProductVariantsGroupSimpleStrategy
+  variantsGroupByPrice: ProductVariantsGroupByPriceInput
+  filter: ProductsFilterInput
+  sortByCategoryPriority: ProductSortByCategoryPriorityInput
+  sortByPrice: ProductSortByPriceInput
+  isVariantsGroup: Boolean
+  sortByCategoryId: Uuid
+}
+
+input ProductsFilterInput {
+  ids: [Uuid!]
+  categoriesId: [Uuid!]
+  isActive: Boolean
+  pointBinds: [ProductPointBindInput!]
+
+  """
+  Содержит все теги
+  """
+  tagsIdAll: [Uuid!]
+
+  """
+  Не содержит все теги
+  """
+  tagsIdNotAll: [Uuid!]
+
+  """
+  Содержит хотя бы 1 тег
+  """
+  tagsIdAny: [Uuid!]
+
+  """
+  Не содержит хотя бы 1 тег
+  """
+  tagsIdNotAny: [Uuid!]
+}
+
+input ProductSortByCategoryPriorityInput {
+  sort: Sort!
+  categoryId: Uuid!
+}
+
+input ProductTagsInput {
+  brandId: Uuid!
+}
+
+input ProductVariantPropertyInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+type ProductVariantProperty {
+  id: Uuid!
+  name: String!
+  isShowName: Boolean!
+  displayType: ProductVariantPropertyDisplayType!
+  innerName: String
+  values: [ProductVariantPropertyValue!]!
+  brandId: Uuid!
+}
+
+enum ProductVariantPropertyDisplayType {
+  BUTTONS
+  SELECT
+}
+
+type ProductVariantPropertyValue {
+  id: Uuid!
+  name: String!
+  priority: Int!
+}
+
+input ProductVariantPropertiesInput {
+  brandId: Uuid!
+}
+
+union UserTypesUnion = User | UserAnonymous
+
+type UserAnonymous {
+  id: Uuid!
+}
+
+type Mutation {
+  authentication(input: AuthenticationInput!): User!
+  authenticationAnonymous: UserAnonymous!
+  logout: Boolean!
+  categoryCreate(input: CategoryCreateInput!): Category!
+  categoryUpdate(input: CategoryUpdateInput!): Category!
+  categoryDelete(input: CategoryDeleteInput!): Boolean!
+  electronicMenuCreate(input: ElectronicMenuCreateInput!): Brand!
+  orderPreOrderByEmployeeCreate(
+    input: OrderPreOrderByEmployeeCreateInput!
+  ): OrderPreOrder!
+  orderPreOrderByEmployeeUpdate(
+    input: OrderPreOrderByEmployeeUpdateInput!
+  ): OrderPreOrder!
+  pointCreate(input: PointCreateInput!): Point!
+  pointUpdate(input: PointUpdateInput!): Point!
+  productCreate(input: ProductCreateInput!): Product!
+  productUpdate(input: ProductUpdateInput!): Product!
+  productDelete(input: ProductDeleteInput!): Boolean!
+  productVariantPropertyCreate(
+    input: ProductVariantPropertyCreateInput!
+  ): ProductVariantProperty!
+  productVariantPropertyUpdate(
+    input: ProductVariantPropertyUpdateInput!
+  ): ProductVariantProperty!
+  productVariantPropertyDelete(
+    input: ProductVariantPropertyDeleteInput!
+  ): Boolean!
+  restoplaceAddressIntegration(input: RestoplaceAuthenticationInput!): User!
+  restoplaceAuthentication(input: RestoplaceAuthenticationInput!): User!
+}
+
+input AuthenticationInput {
+  login: String!
+  password: String!
+}
+
+input CategoryCreateInput {
+  brandId: Uuid!
+  name: String!
+  slug: String
+  isActive: Boolean
+  parentId: Uuid
+  positionAnchor: Uuid
+  positionAnchorNearType: NearType
+  positionEndOfList: EndOfList
+  pointBinds: [CategoryPointBindInput!]
+  imageUpload: Upload
+}
+
+enum NearType {
+  BEFORE
+  AFTER
+}
+
+enum EndOfList {
+  START
+  END
+}
+
+scalar Upload
+
+input CategoryUpdateInput {
+  brandId: Uuid!
+  id: Uuid!
+  name: String
+  slug: String
+  isActive: Boolean
+  parentId: Uuid
+  positionAnchor: Uuid
+  positionAnchorNearType: NearType
+  positionEndOfList: EndOfList
+  isParentIdRemove: Boolean
+  pointBinds: [CategoryPointBindInput!]
+  imageUpload: Upload
+  isImageRemove: Boolean
+}
+
+input CategoryDeleteInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+input ElectronicMenuCreateInput {
+  brandName: String!
+  pointAddress: String!
+  pointPhone: Phone!
+  accountId: Uuid
+  pointName: String
+  isPointAddressClean: Boolean
+}
+
+input OrderPreOrderByEmployeeCreateInput {
+  brandId: Uuid!
+  pointId: Uuid!
+  status: OrderStatus
+  comment: String
+  personsNumber: Int
+  itemsAdd: [OrderItemAddInput!]
+}
+
+input OrderItemAddInput {
+  productId: Uuid!
+  quantity: Int!
+}
+
+input OrderPreOrderByEmployeeUpdateInput {
+  brandId: Uuid!
+  id: Uuid!
+  status: OrderStatus
+  comment: String
+  isCommentClear: Boolean
+  personsNumber: Int
+  isPersonsNumberClear: Boolean
+  items: [OrderItemUpdateInput!]
+  itemsRemove: [Uuid!]
+  itemsUpdate: [OrderItemUpdateInput!]
+  itemsAdd: [OrderItemAddInput!]
+}
+
+input OrderItemUpdateInput {
+  id: Uuid!
+  quantity: Int
+  quantityOffset: Int
+}
+
+input PointCreateInput {
+  brandId: Uuid!
+  address: String!
+  phone: Phone!
+  name: String
+  isActive: Boolean
+  positionAnchor: Uuid
+  positionAnchorNearType: NearType
+  positionEndOfList: EndOfList
+}
+
+input PointUpdateInput {
+  brandId: Uuid!
+  id: Uuid!
+  address: String
+  phone: Phone
+  name: String
+  isNameRemove: Boolean
+  isActive: Boolean
+  positionAnchor: Uuid
+  positionAnchorNearType: NearType
+  positionEndOfList: EndOfList
+}
+
+input ProductCreateInput {
+  brandId: Uuid!
+  name: String!
+  priceSettings: ProductPriceSettingsCreateInput!
+  slug: String
+  isActive: Boolean
+  description: String
+  carbohydrates: Int53
+  calories: Int53
+  fats: Int53
+  protein: Int53
+  unit: ProductUnit
+  unitValue: String
+  tagBinds: [ProductTagBindInput!]
+  tagBindsByName: [ProductTagBindByNameInput!]
+  categoryBinds: [ProductCategoryBindInput!]
+  pointBinds: [ProductPointBindInput!]
+  imagesUpload: [ProductImageUploadInput!]
+  variantGroup: ProductVariantGroupInput
+  variantSettings: ProductVariantSettingsInput
+  variantsCreate: [ProductVariantCreateInput!]
+}
+
+input ProductPriceSettingsCreateInput {
+  price: Int53!
+  priceOrderTypes: [ProductPriceSettingsOrderTypeInput!]
+}
+
+input ProductPriceSettingsOrderTypeInput {
+  orderType: OrderType!
+  priceCommon: Int53
+  isPriceCommonRemove: Boolean
+  priceCities: [ProductPriceSettingsCityInput!]
+  pricePoints: [ProductPriceSettingsPointInput!]
+}
+
+input ProductPriceSettingsCityInput {
+  cityId: Uuid!
+  price: Int53!
+}
+
+input ProductPriceSettingsPointInput {
+  pointId: Uuid!
+  price: Int53!
+}
+
+input ProductTagBindInput {
+  tagId: Uuid!
+  priority: Int!
+}
+
+input ProductTagBindByNameInput {
+  name: String!
+  priority: Int!
+}
+
+input ProductCategoryBindInput {
+  categoryId: Uuid!
+  priority: Int
+  positionAnchor: Uuid
+  positionAnchorNearType: NearType
+  positionEndOfList: EndOfList
+}
+
+input ProductImageUploadInput {
+  file: Upload!
+  priority: Int!
+}
+
+input ProductVariantGroupInput {
+  variantPropertyBinds: [ProductVariantGroupVariantPropertyBindInput!]
+}
+
+input ProductVariantGroupVariantPropertyBindInput {
+  variantPropertyId: Uuid!
+  priority: Int!
+}
+
+input ProductVariantSettingsInput {
+  variantPropertyBinds: [ProductVariantSettingsVariantPropertyBindInput!]
+  priority: Int
+  isMain: Boolean
+}
+
+input ProductVariantSettingsVariantPropertyBindInput {
+  variantPropertyId: Uuid!
+  variantPropertyValueId: Uuid!
+}
+
+input ProductVariantCreateInput {
+  unitValue: String
+  slug: String
+  priceSettings: ProductPriceSettingsCreateInput!
+  variantSettings: ProductVariantSettingsInput!
+}
+
+input ProductUpdateInput {
+  brandId: Uuid!
+  id: Uuid!
+  name: String
+  slug: String
+  isActive: Boolean
+  description: String
+  carbohydrates: Int53
+  calories: Int53
+  fats: Int53
+  protein: Int53
+  isCarbohydratesRemove: Boolean
+  isCaloriesRemove: Boolean
+  isProteinRemove: Boolean
+  isFatsRemove: Boolean
+  unit: ProductUnit
+  unitValue: String
+  isUnitRemove: Boolean
+  isUnitValueRemove: Boolean
+  categoryBinds: [ProductCategoryBindInput!]
+  categoryBindsSet: [ProductCategoryBindInput!]
+  tagBinds: [ProductTagBindInput!]
+  tagBindsByName: [ProductTagBindByNameInput!]
+  pointBinds: [ProductPointBindInput!]
+  imagesUpload: [ProductImageUploadInput!]
+  images: [ProductImageInput!]
+  priceSettings: ProductPriceSettingsUpdateInput
+  variantGroup: ProductVariantGroupInput
+  isVariantGroupRemove: Boolean
+  variantSettings: ProductVariantSettingsInput
+  variantsCreate: [ProductVariantCreateInput!]
+  variants: [ProductVariantUpdateInput!]
+}
+
+input ProductImageInput {
+  fileId: Uuid!
+  priority: Int!
+}
+
+input ProductPriceSettingsUpdateInput {
+  price: Int53
+  priceOrderTypes: [ProductPriceSettingsOrderTypeInput!]
+}
+
+input ProductVariantUpdateInput {
+  id: Uuid!
+  unitValue: String
+  isUnitValueRemove: Boolean
+  slug: String
+  priceSettings: ProductPriceSettingsUpdateInput
+  variantSettings: ProductVariantSettingsInput
+}
+
+input ProductDeleteInput {
+  brandId: Uuid!
+  id: Uuid!
+  withVariants: Boolean
+}
+
+input ProductVariantPropertyCreateInput {
+  brandId: Uuid!
+  name: String!
+  isShowName: Boolean!
+  displayType: ProductVariantPropertyDisplayType!
+  valuesCreate: [ProductVariantPropertyValueCreateInput!]!
+  innerName: String
+}
+
+input ProductVariantPropertyValueCreateInput {
+  name: String!
+  priority: Int!
+}
+
+input ProductVariantPropertyUpdateInput {
+  brandId: Uuid!
+  id: Uuid!
+  name: String
+  isShowName: Boolean
+  displayType: ProductVariantPropertyDisplayType
+  valuesCreate: [ProductVariantPropertyValueCreateInput!]
+  values: [ProductVariantPropertyValueUpdateInput!]
+  innerName: String
+  isInnerNameRemove: Boolean
+}
+
+input ProductVariantPropertyValueUpdateInput {
+  id: Uuid!
+  name: String
+  priority: Int
+}
+
+input ProductVariantPropertyDeleteInput {
+  brandId: Uuid!
+  id: Uuid!
+}
+
+input RestoplaceAuthenticationInput {
+  code: String!
+}
