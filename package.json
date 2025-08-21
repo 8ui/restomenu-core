@@ -70,5 +70,9 @@
     "utilities",
     "types",
     "restomenu"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/resto-menu/frontend/restomenu-core.git"
+  }
 }
