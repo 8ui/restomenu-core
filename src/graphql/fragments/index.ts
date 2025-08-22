@@ -280,17 +280,45 @@ export const PRODUCT_BINDINGS_FRAGMENT = gql`
   }
 `;
 
+export const PRODUCT_VARIANTS_FRAGMENT = gql`
+  fragment ProductVariants on Product {
+    variantGroup {
+      variantPropertyBinds {
+        variantPropertyId
+        priority
+      }
+    }
+    variantSettings {
+      variantPropertyBinds {
+        variantPropertyId
+        variantPropertyValueId
+      }
+      priority
+      isMain
+    }
+    variants {
+      id
+      name
+      slug
+      unitValue
+      isActive
+    }
+  }
+`;
+
 export const PRODUCT_FULL_FRAGMENT = gql`
   fragment ProductFull on Product {
     ...ProductDetail
     ...ProductImages
     ...ProductTags
     ...ProductBindings
+    ...ProductVariants
   }
   ${PRODUCT_DETAIL_FRAGMENT}
   ${PRODUCT_IMAGES_FRAGMENT}
   ${PRODUCT_TAGS_FRAGMENT}
   ${PRODUCT_BINDINGS_FRAGMENT}
+  ${PRODUCT_VARIANTS_FRAGMENT}
 `;
 
 export const PRODUCT_FOR_MENU_FRAGMENT = gql`
@@ -464,6 +492,7 @@ export const FRAGMENTS = {
   PRODUCT_IMAGES: PRODUCT_IMAGES_FRAGMENT,
   PRODUCT_TAGS: PRODUCT_TAGS_FRAGMENT,
   PRODUCT_BINDINGS: PRODUCT_BINDINGS_FRAGMENT,
+  PRODUCT_VARIANTS: PRODUCT_VARIANTS_FRAGMENT,
   PRODUCT_FULL: PRODUCT_FULL_FRAGMENT,
   PRODUCT_FOR_MENU: PRODUCT_FOR_MENU_FRAGMENT,
 

@@ -10,12 +10,17 @@ import {
   GET_FILTERED_PRODUCTS,
   GET_PRODUCTS_BY_CATEGORY,
   GET_PRODUCT_TAGS,
+  GET_PRODUCT_VARIANT_PROPERTIES,
+  GET_PRODUCT_VARIANT_PROPERTY,
 } from "../graphql/queries/product";
 import {
   CREATE_PRODUCT,
   UPDATE_PRODUCT,
   DELETE_PRODUCT,
   TOGGLE_PRODUCT_ACTIVE,
+  CREATE_PRODUCT_VARIANT_PROPERTY,
+  UPDATE_PRODUCT_VARIANT_PROPERTY,
+  DELETE_PRODUCT_VARIANT_PROPERTY,
 } from "../graphql/mutations/product";
 import type {
   ProductInput,
@@ -156,6 +161,38 @@ export const useProductTags = ({
   });
 };
 
+// Hook for getting product variant properties
+export const useProductVariantProperties = ({
+  brandId,
+  skip = false,
+}: {
+  brandId: string;
+  skip?: boolean;
+}) => {
+  return useQuery(GET_PRODUCT_VARIANT_PROPERTIES, {
+    variables: { brandId },
+    skip,
+    errorPolicy: "all",
+  });
+};
+
+// Hook for getting a single product variant property
+export const useProductVariantProperty = ({
+  brandId,
+  id,
+  skip = false,
+}: {
+  brandId: string;
+  id: string;
+  skip?: boolean;
+}) => {
+  return useQuery(GET_PRODUCT_VARIANT_PROPERTY, {
+    variables: { brandId, id },
+    skip,
+    errorPolicy: "all",
+  });
+};
+
 // ================== MUTATION HOOKS ==================
 
 // Hook for creating a product
@@ -182,6 +219,27 @@ export const useDeleteProduct = () => {
 // Hook for toggling product active status
 export const useToggleProductActive = () => {
   return useMutation(TOGGLE_PRODUCT_ACTIVE, {
+    errorPolicy: "all",
+  });
+};
+
+// Hook for creating a product variant property
+export const useCreateProductVariantProperty = () => {
+  return useMutation(CREATE_PRODUCT_VARIANT_PROPERTY, {
+    errorPolicy: "all",
+  });
+};
+
+// Hook for updating a product variant property
+export const useUpdateProductVariantProperty = () => {
+  return useMutation(UPDATE_PRODUCT_VARIANT_PROPERTY, {
+    errorPolicy: "all",
+  });
+};
+
+// Hook for deleting a product variant property
+export const useDeleteProductVariantProperty = () => {
+  return useMutation(DELETE_PRODUCT_VARIANT_PROPERTY, {
     errorPolicy: "all",
   });
 };
@@ -254,12 +312,17 @@ export const PRODUCT_HOOKS = {
   useAvailableProducts,
   useProductsByCategory,
   useProductTags,
+  useProductVariantProperties,
+  useProductVariantProperty,
 
   // Mutation hooks
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
   useToggleProductActive,
+  useCreateProductVariantProperty,
+  useUpdateProductVariantProperty,
+  useDeleteProductVariantProperty,
 
   // Composite hooks
   useProductFormData,

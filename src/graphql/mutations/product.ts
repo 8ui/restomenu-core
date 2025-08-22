@@ -150,38 +150,70 @@ export const UPDATE_PRODUCT_POINT_BINDINGS = gql`
   }
 `;
 
-// Toggle product active status
+// Toggle product active status (fixed variable names to match schema)
 export const TOGGLE_PRODUCT_ACTIVE = gql`
   mutation ToggleProductActive(
-    $productId: Uuid!
+    $id: Uuid!
     $brandId: Uuid!
     $isActive: Boolean!
   ) {
-    productUpdate(
-      input: { productId: $productId, brandId: $brandId, isActive: $isActive }
-    ) {
+    productUpdate(input: { id: $id, brandId: $brandId, isActive: $isActive }) {
       id
       isActive
     }
   }
 `;
 
-// ================== BATCH MUTATIONS ==================
+// ================== PRODUCT VARIANT PROPERTY MUTATIONS ==================
 
-// Batch update products (if supported by schema)
-export const BATCH_UPDATE_PRODUCTS = gql`
-  mutation BatchUpdateProducts($inputs: [ProductUpdateInput!]!) {
-    productBatchUpdate(inputs: $inputs) {
+// Create product variant property
+export const CREATE_PRODUCT_VARIANT_PROPERTY = gql`
+  mutation CreateProductVariantProperty(
+    $input: ProductVariantPropertyCreateInput!
+  ) {
+    productVariantPropertyCreate(input: $input) {
       id
-      isActive
+      name
+      isShowName
+      displayType
+      innerName
+      brandId
+      values {
+        id
+        name
+        priority
+      }
     }
   }
 `;
 
-// Batch delete products (if supported by schema)
-export const BATCH_DELETE_PRODUCTS = gql`
-  mutation BatchDeleteProducts($inputs: [ProductDeleteInput!]!) {
-    productBatchDelete(inputs: $inputs)
+// Update product variant property
+export const UPDATE_PRODUCT_VARIANT_PROPERTY = gql`
+  mutation UpdateProductVariantProperty(
+    $input: ProductVariantPropertyUpdateInput!
+  ) {
+    productVariantPropertyUpdate(input: $input) {
+      id
+      name
+      isShowName
+      displayType
+      innerName
+      brandId
+      values {
+        id
+        name
+        priority
+      }
+    }
+  }
+`;
+
+// Delete product variant property
+export const DELETE_PRODUCT_VARIANT_PROPERTY = gql`
+  mutation DeleteProductVariantProperty(
+    $input: ProductVariantPropertyDeleteInput!
+  ) {
+    productVariantPropertyDelete(input: $input)
   }
 `;
 
@@ -190,13 +222,16 @@ export const PRODUCT_MUTATIONS = {
   // Create mutations
   CREATE_PRODUCT,
   CREATE_PRODUCT_FULL,
+  CREATE_PRODUCT_VARIANT_PROPERTY,
 
   // Update mutations
   UPDATE_PRODUCT,
   UPDATE_PRODUCT_FULL,
+  UPDATE_PRODUCT_VARIANT_PROPERTY,
 
   // Delete mutations
   DELETE_PRODUCT,
+  DELETE_PRODUCT_VARIANT_PROPERTY,
   SOFT_DELETE_PRODUCT,
 
   // Specialized mutations
@@ -206,8 +241,4 @@ export const PRODUCT_MUTATIONS = {
   UPDATE_PRODUCT_CATEGORY_BINDINGS,
   UPDATE_PRODUCT_POINT_BINDINGS,
   TOGGLE_PRODUCT_ACTIVE,
-
-  // Batch mutations
-  BATCH_UPDATE_PRODUCTS,
-  BATCH_DELETE_PRODUCTS,
 } as const;

@@ -2,6 +2,7 @@ import { ApolloClient } from "@apollo/client";
 import {
   GET_PRODUCTS_FOR_MENU,
   GET_PRODUCTS_DETAIL,
+  GET_PRODUCT_DETAIL,
   GET_AVAILABLE_PRODUCTS,
   GET_PRODUCTS_BY_CATEGORY,
   GET_PRODUCT_TAGS,
@@ -41,22 +42,49 @@ export interface CreateProductInput {
   name: string;
   description?: string;
   brandId: string;
-  unit?: string;
-  unitValue?: number;
+  unit?:
+    | "GRAM"
+    | "MILLILITERS"
+    | "PORTION"
+    | "BOTTLES"
+    | "PIECES"
+    | "KILOGRAM"
+    | "LITERS";
+  unitValue?: string;
   calories?: number;
   carbohydrates?: number;
   fats?: number;
   protein?: number;
-  categoryIds?: string[];
-  tagIds?: string[];
+  categoryBinds?: Array<{
+    categoryId: string;
+    priority?: number;
+  }>;
+  tagBinds?: Array<{
+    tagId: string;
+    priority: number;
+  }>;
   images?: Array<{
     fileId: string;
     priority: number;
   }>;
-  priceSettings?: any;
+  priceSettings: {
+    price: number;
+    priceOrderTypes?: Array<{
+      orderType: "PRE_ORDER" | "ON_TABLE" | "DELIVERY" | "PICKUP";
+      priceCommon?: number;
+      priceCities?: Array<{
+        cityId: string;
+        price: number;
+      }>;
+      pricePoints?: Array<{
+        pointId: string;
+        price: number;
+      }>;
+    }>;
+  };
   pointBinds?: Array<{
     pointId: string;
-    orderType: string;
+    orderType: "PRE_ORDER" | "ON_TABLE" | "DELIVERY" | "PICKUP";
   }>;
 }
 
@@ -312,7 +340,7 @@ export class ProductManager {
   /**
    * Delete a product with confirmation
    */
-  async delete(productId: string, brandId?: string) {
+  async delete(id: string, brandId?: string) {
     try {
       const finalBrandId = brandId || this.config.defaultBrandId;
       if (!finalBrandId) {
@@ -322,7 +350,7 @@ export class ProductManager {
       const result = await this.client.mutate({
         mutation: DELETE_PRODUCT,
         variables: {
-          input: { productId, brandId: finalBrandId },
+          input: { id, brandId: finalBrandId },
         },
         refetchQueries: ["GetProductsForMenu", "GetAvailableProducts"],
       });
@@ -342,7 +370,7 @@ export class ProductManager {
   /**
    * Toggle product active status with optimistic update
    */
-  async toggleActive(productId: string, brandId?: string) {
+  async toggleActive(id: string, brandId?: string) {
     try {
       const finalBrandId = brandId || this.config.defaultBrandId;
       if (!finalBrandId) {
@@ -350,7 +378,7 @@ export class ProductManager {
       }
 
       // Get current product to determine new state
-      const currentProduct = await this.getById(productId, finalBrandId);
+      const currentProduct = await this.getById(id, finalBrandId);
       if (currentProduct.error) {
         throw currentProduct.error;
       }
@@ -360,13 +388,13 @@ export class ProductManager {
       const result = await this.client.mutate({
         mutation: TOGGLE_PRODUCT_ACTIVE,
         variables: {
-          productId,
+          id,
           brandId: finalBrandId,
           isActive: newActiveState,
         },
         optimisticResponse: {
           productUpdate: {
-            id: productId,
+            id,
             isActive: newActiveState,
             __typename: "Product",
           },
@@ -392,7 +420,7 @@ export class ProductManager {
   /**
    * Get product by ID
    */
-  async getById(productId: string, brandId?: string) {
+  async getById(id: string, brandId?: string) {
     try {
       const finalBrandId = brandId || this.config.defaultBrandId;
       if (!finalBrandId) {
@@ -400,9 +428,9 @@ export class ProductManager {
       }
 
       const result = await this.client.query({
-        query: GET_PRODUCTS_DETAIL,
+        query: GET_PRODUCT_DETAIL,
         variables: {
-          input: { productId, brandId: finalBrandId },
+          input: { id, brandId: finalBrandId },
         },
         fetchPolicy: "cache-first",
       });
@@ -479,12 +507,12 @@ export class ProductManager {
   /**
    * Batch operations for multiple products
    */
-  async batchUpdate(updates: Array<{ productId: string; updates: any }>) {
+  async batchUpdate(updates: Array<{ id: string; updates: any }>) {
     const results = [];
 
     for (const update of updates) {
       const result = await this.update({
-        productId: update.productId,
+        id: update.id,
         ...update.updates,
       });
       results.push(result);

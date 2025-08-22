@@ -129,7 +129,7 @@ export const GET_PRODUCTS_BY_CATEGORY = gql`
         filter: {
           isActive: true
           pointBinds: { pointId: $pointId, orderType: $orderType }
-          categoriesId: $categoryId
+          categoriesId: [$categoryId]
         }
       }
     ) {
@@ -188,12 +188,50 @@ export const GET_PRODUCT_TAGS = gql`
   }
 `;
 
-// Get products count with filters
-export const GET_PRODUCTS_COUNT = gql`
-  query GetProductsCount($pointId: Uuid!, $filter: ProductGetCountInput) {
-    productsCount(pointId: $pointId, ProductGetCountInput: $filter)
+// Get product variant properties for a brand
+export const GET_PRODUCT_VARIANT_PROPERTIES = gql`
+  query GetProductVariantProperties($brandId: Uuid!) {
+    productVariantProperties(input: { brandId: $brandId }) {
+      id
+      name
+      isShowName
+      displayType
+      innerName
+      brandId
+      values {
+        id
+        name
+        priority
+      }
+    }
   }
 `;
+
+// Get single product variant property
+export const GET_PRODUCT_VARIANT_PROPERTY = gql`
+  query GetProductVariantProperty($brandId: Uuid!, $id: Uuid!) {
+    productVariantProperty(input: { brandId: $brandId, id: $id }) {
+      id
+      name
+      isShowName
+      displayType
+      innerName
+      brandId
+      values {
+        id
+        name
+        priority
+      }
+    }
+  }
+`;
+
+// Get products count with filters (removed as not supported in schema)
+// export const GET_PRODUCTS_COUNT = gql`
+//   query GetProductsCount($pointId: Uuid!, $filter: ProductGetCountInput) {
+//     productsCount(pointId: $pointId, ProductGetCountInput: $filter)
+//   }
+// `;
 
 // ================== EXPORTED QUERY COLLECTIONS ==================
 export const PRODUCT_QUERIES = {
@@ -214,7 +252,9 @@ export const PRODUCT_QUERIES = {
   GET_AVAILABLE_PRODUCTS,
   GET_FILTERED_PRODUCTS,
   GET_PRODUCT_TAGS,
-  GET_PRODUCTS_COUNT,
+  GET_PRODUCT_VARIANT_PROPERTIES,
+  GET_PRODUCT_VARIANT_PROPERTY,
+  // GET_PRODUCTS_COUNT, // Removed - not supported in schema
 } as const;
 
 // Legacy exports for backward compatibility
