@@ -1,4 +1,5 @@
 import { gql } from "@apollo/client";
+import type { FragmentDefinitionNode, DocumentNode } from "graphql";
 import {
   PRODUCT_BASE_FRAGMENT,
   PRODUCT_DETAIL_FRAGMENT,
@@ -12,7 +13,7 @@ import {
 } from "../../src/graphql/fragments";
 
 // Helper function to validate GraphQL fragment structure
-const validateFragment = (fragment: any) => {
+const validateFragment = (fragment: DocumentNode) => {
   expect(fragment).toBeDefined();
   expect(fragment.kind).toBe("Document");
   expect(fragment.definitions).toHaveLength(1);
@@ -20,8 +21,8 @@ const validateFragment = (fragment: any) => {
 };
 
 // Helper function to get fragment fields
-const getFragmentFields = (fragment: any): string[] => {
-  const fragmentDef = fragment.definitions[0];
+const getFragmentFields = (fragment: DocumentNode): string[] => {
+  const fragmentDef = fragment.definitions[0] as FragmentDefinitionNode;
   return fragmentDef.selectionSet.selections.map((selection: any) => {
     if (selection.kind === "Field") {
       return selection.name.value;
@@ -54,7 +55,8 @@ describe("GraphQL Fragments", () => {
       });
 
       it("should have correct fragment name", () => {
-        const fragmentDef = PRODUCT_BASE_FRAGMENT.definitions[0];
+        const fragmentDef = PRODUCT_BASE_FRAGMENT
+          .definitions[0] as FragmentDefinitionNode;
         expect(fragmentDef.name.value).toBe("ProductBase");
         expect(fragmentDef.typeCondition.name.value).toBe("Product");
       });
@@ -130,7 +132,8 @@ describe("GraphQL Fragments", () => {
       });
 
       it("should have correct fragment name", () => {
-        const fragmentDef = PRODUCT_PRICE_SETTINGS_FRAGMENT.definitions[0];
+        const fragmentDef = PRODUCT_PRICE_SETTINGS_FRAGMENT
+          .definitions[0] as FragmentDefinitionNode;
         expect(fragmentDef.name.value).toBe("ProductPriceSettings");
         expect(fragmentDef.typeCondition.name.value).toBe("Product");
       });
@@ -305,18 +308,22 @@ describe("GraphQL Fragments", () => {
 
   describe("Fragment Naming Convention", () => {
     it("should follow consistent naming pattern", () => {
-      const fragmentDef = PRODUCT_BASE_FRAGMENT.definitions[0];
+      const fragmentDef = PRODUCT_BASE_FRAGMENT
+        .definitions[0] as FragmentDefinitionNode;
       expect(fragmentDef.name.value).toMatch(/^[A-Z][a-zA-Z]+$/);
 
-      const categoryDef = CATEGORY_BASE_FRAGMENT.definitions[0];
+      const categoryDef = CATEGORY_BASE_FRAGMENT
+        .definitions[0] as FragmentDefinitionNode;
       expect(categoryDef.name.value).toMatch(/^[A-Z][a-zA-Z]+$/);
     });
 
     it("should have consistent type conditions", () => {
-      const productFragmentDef = PRODUCT_BASE_FRAGMENT.definitions[0];
+      const productFragmentDef = PRODUCT_BASE_FRAGMENT
+        .definitions[0] as FragmentDefinitionNode;
       expect(productFragmentDef.typeCondition.name.value).toBe("Product");
 
-      const categoryFragmentDef = CATEGORY_BASE_FRAGMENT.definitions[0];
+      const categoryFragmentDef = CATEGORY_BASE_FRAGMENT
+        .definitions[0] as FragmentDefinitionNode;
       expect(categoryFragmentDef.typeCondition.name.value).toBe("Category");
     });
   });

@@ -1,6 +1,6 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
-import React from 'react';
+import { renderHook, waitFor } from "@testing-library/react";
+import { MockedProvider } from "@apollo/client/testing";
+import React from "react";
 import {
   useCategory,
   useCategories,
@@ -11,34 +11,34 @@ import {
   useDeleteCategory,
   useToggleCategoryActive,
   useMenuCategories,
-} from '../../src/hooks/category';
+} from "../../src/hooks/category";
 import {
   GET_CATEGORY_DETAIL,
   GET_CATEGORIES_DETAIL,
   GET_CATEGORIES_WITH_PRODUCTS_COUNT,
   GET_BRAND_CATEGORIES,
-} from '../../src/graphql/queries/category';
+} from "../../src/graphql/queries/category";
 import {
   CREATE_CATEGORY,
   UPDATE_CATEGORY,
   DELETE_CATEGORY,
   TOGGLE_CATEGORY_ACTIVE,
-} from '../../src/graphql/mutations/category';
+} from "../../src/graphql/mutations/category";
 
 // Mock data
 const mockCategory = {
-  id: 'category-1',
-  name: 'Test Category',
-  slug: 'test-category',
-  imageUrl: 'https://example.com/category.jpg',
+  id: "category-1",
+  name: "Test Category",
+  slug: "test-category",
+  imageUrl: "https://example.com/category.jpg",
   priority: 1,
   isActive: true,
-  brandId: 'brand-1',
+  brandId: "brand-1",
   parentId: null,
   pointBinds: [
     {
-      pointId: 'point-1',
-      orderType: 'DELIVERY',
+      pointId: "point-1",
+      orderType: "DELIVERY",
     },
   ],
   productsCount: 5,
@@ -46,27 +46,28 @@ const mockCategory = {
 
 const mockCategories = [
   mockCategory,
-  { ...mockCategory, id: 'category-2', name: 'Test Category 2' },
+  { ...mockCategory, id: "category-2", name: "Test Category 2" },
 ];
 
 // Test wrapper component
 const createWrapper = (mocks: any[]) => {
-  return ({ children }: { children: React.ReactNode }) => (
-    <MockedProvider mocks={mocks} addTypename={false}>
-      {children}
-    </MockedProvider>
-  );
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(
+      MockedProvider,
+      { mocks, addTypename: false },
+      children
+    );
 };
 
-describe('Category Hooks', () => {
-  describe('useCategory', () => {
-    it('should fetch category data successfully', async () => {
+describe("Category Hooks", () => {
+  describe("useCategory", () => {
+    it("should fetch category data successfully", async () => {
       const mocks = [
         {
           request: {
             query: GET_CATEGORY_DETAIL,
             variables: {
-              input: { categoryId: 'category-1' },
+              input: { brandId: "brand-1", id: "category-1" },
             },
           },
           result: {
@@ -78,7 +79,11 @@ describe('Category Hooks', () => {
       ];
 
       const { result } = renderHook(
-        () => useCategory({ input: { categoryId: 'category-1' }, level: 'detail' }),
+        () =>
+          useCategory({
+            input: { brandId: "brand-1", id: "category-1" },
+            level: "detail",
+          }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -97,21 +102,25 @@ describe('Category Hooks', () => {
       expect(result.current.error).toBeUndefined();
     });
 
-    it('should handle errors gracefully', async () => {
+    it("should handle errors gracefully", async () => {
       const mocks = [
         {
           request: {
             query: GET_CATEGORY_DETAIL,
             variables: {
-              input: { categoryId: 'category-1' },
+              input: { brandId: "brand-1", id: "category-1" },
             },
           },
-          error: new Error('Category not found'),
+          error: new Error("Category not found"),
         },
       ];
 
       const { result } = renderHook(
-        () => useCategory({ input: { categoryId: 'category-1' }, level: 'detail' }),
+        () =>
+          useCategory({
+            input: { brandId: "brand-1", id: "category-1" },
+            level: "detail",
+          }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -122,14 +131,18 @@ describe('Category Hooks', () => {
       });
 
       expect(result.current.error).toBeDefined();
-      expect(result.current.error?.message).toBe('Category not found');
+      expect(result.current.error?.message).toBe("Category not found");
     });
 
-    it('should skip query when skip is true', () => {
+    it("should skip query when skip is true", () => {
       const mocks: any[] = [];
 
       const { result } = renderHook(
-        () => useCategory({ input: { categoryId: 'category-1' }, skip: true }),
+        () =>
+          useCategory({
+            input: { brandId: "brand-1", id: "category-1" },
+            skip: true,
+          }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -140,14 +153,14 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useCategories', () => {
-    it('should fetch categories list successfully', async () => {
+  describe("useCategories", () => {
+    it("should fetch categories list successfully", async () => {
       const mocks = [
         {
           request: {
             query: GET_CATEGORIES_DETAIL,
             variables: {
-              input: { brandId: 'brand-1' },
+              input: { brandId: "brand-1" },
             },
           },
           result: {
@@ -159,7 +172,7 @@ describe('Category Hooks', () => {
       ];
 
       const { result } = renderHook(
-        () => useCategories({ input: { brandId: 'brand-1' }, level: 'detail' }),
+        () => useCategories({ input: { brandId: "brand-1" }, level: "detail" }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -174,16 +187,16 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useCategoriesWithProductsCount', () => {
-    it('should fetch categories with products count', async () => {
+  describe("useCategoriesWithProductsCount", () => {
+    it("should fetch categories with products count", async () => {
       const mocks = [
         {
           request: {
             query: GET_CATEGORIES_WITH_PRODUCTS_COUNT,
             variables: {
-              brandId: 'brand-1',
-              pointId: 'point-1',
-              orderType: 'DELIVERY',
+              brandId: "brand-1",
+              pointId: "point-1",
+              orderType: "DELIVERY",
             },
           },
           result: {
@@ -195,11 +208,12 @@ describe('Category Hooks', () => {
       ];
 
       const { result } = renderHook(
-        () => useCategoriesWithProductsCount({
-          brandId: 'brand-1',
-          pointId: 'point-1',
-          orderType: 'DELIVERY',
-        }),
+        () =>
+          useCategoriesWithProductsCount({
+            brandId: "brand-1",
+            pointId: "point-1",
+            orderType: "DELIVERY",
+          }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -213,14 +227,14 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useBrandCategories', () => {
-    it('should fetch all categories for a brand', async () => {
+  describe("useBrandCategories", () => {
+    it("should fetch all categories for a brand", async () => {
       const mocks = [
         {
           request: {
             query: GET_BRAND_CATEGORIES,
             variables: {
-              brandId: 'brand-1',
+              brandId: "brand-1",
             },
           },
           result: {
@@ -232,7 +246,7 @@ describe('Category Hooks', () => {
       ];
 
       const { result } = renderHook(
-        () => useBrandCategories({ brandId: 'brand-1' }),
+        () => useBrandCategories({ brandId: "brand-1" }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -246,11 +260,11 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useCreateCategory', () => {
-    it('should create category successfully', async () => {
+  describe("useCreateCategory", () => {
+    it("should create category successfully", async () => {
       const newCategory = {
-        name: 'New Category',
-        brandId: 'brand-1',
+        name: "New Category",
+        brandId: "brand-1",
         priority: 1,
       };
 
@@ -267,19 +281,16 @@ describe('Category Hooks', () => {
               categoryCreate: {
                 ...mockCategory,
                 ...newCategory,
-                id: 'category-3',
+                id: "category-3",
               },
             },
           },
         },
       ];
 
-      const { result } = renderHook(
-        () => useCreateCategory(),
-        {
-          wrapper: createWrapper(mocks),
-        }
-      );
+      const { result } = renderHook(() => useCreateCategory(), {
+        wrapper: createWrapper(mocks),
+      });
 
       const [createCategory] = result.current;
 
@@ -291,16 +302,16 @@ describe('Category Hooks', () => {
       });
 
       expect(mutationResult.data.categoryCreate.name).toBe(newCategory.name);
-      expect(mutationResult.data.categoryCreate.id).toBe('category-3');
+      expect(mutationResult.data.categoryCreate.id).toBe("category-3");
     });
   });
 
-  describe('useUpdateCategory', () => {
-    it('should update category successfully', async () => {
+  describe("useUpdateCategory", () => {
+    it("should update category successfully", async () => {
       const updateData = {
-        categoryId: 'category-1',
-        brandId: 'brand-1',
-        name: 'Updated Category Name',
+        categoryId: "category-1",
+        brandId: "brand-1",
+        name: "Updated Category Name",
       };
 
       const mocks = [
@@ -322,12 +333,9 @@ describe('Category Hooks', () => {
         },
       ];
 
-      const { result } = renderHook(
-        () => useUpdateCategory(),
-        {
-          wrapper: createWrapper(mocks),
-        }
-      );
+      const { result } = renderHook(() => useUpdateCategory(), {
+        wrapper: createWrapper(mocks),
+      });
 
       const [updateCategory] = result.current;
 
@@ -342,16 +350,16 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useDeleteCategory', () => {
-    it('should delete category successfully', async () => {
+  describe("useDeleteCategory", () => {
+    it("should delete category successfully", async () => {
       const mocks = [
         {
           request: {
             query: DELETE_CATEGORY,
             variables: {
               input: {
-                categoryId: 'category-1',
-                brandId: 'brand-1',
+                categoryId: "category-1",
+                brandId: "brand-1",
               },
             },
           },
@@ -363,12 +371,9 @@ describe('Category Hooks', () => {
         },
       ];
 
-      const { result } = renderHook(
-        () => useDeleteCategory(),
-        {
-          wrapper: createWrapper(mocks),
-        }
-      );
+      const { result } = renderHook(() => useDeleteCategory(), {
+        wrapper: createWrapper(mocks),
+      });
 
       const [deleteCategory] = result.current;
 
@@ -377,8 +382,8 @@ describe('Category Hooks', () => {
         mutationResult = await deleteCategory({
           variables: {
             input: {
-              categoryId: 'category-1',
-              brandId: 'brand-1',
+              categoryId: "category-1",
+              brandId: "brand-1",
             },
           },
         });
@@ -388,14 +393,14 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useToggleCategoryActive', () => {
-    it('should toggle category active status', async () => {
+  describe("useToggleCategoryActive", () => {
+    it("should toggle category active status", async () => {
       const mocks = [
         {
           request: {
             query: TOGGLE_CATEGORY_ACTIVE,
             variables: {
-              categoryId: 'category-1',
+              categoryId: "category-1",
               isActive: false,
             },
           },
@@ -410,12 +415,9 @@ describe('Category Hooks', () => {
         },
       ];
 
-      const { result } = renderHook(
-        () => useToggleCategoryActive(),
-        {
-          wrapper: createWrapper(mocks),
-        }
-      );
+      const { result } = renderHook(() => useToggleCategoryActive(), {
+        wrapper: createWrapper(mocks),
+      });
 
       const [toggleActive] = result.current;
 
@@ -423,7 +425,7 @@ describe('Category Hooks', () => {
       await waitFor(async () => {
         mutationResult = await toggleActive({
           variables: {
-            categoryId: 'category-1',
+            categoryId: "category-1",
             isActive: false,
           },
         });
@@ -433,16 +435,16 @@ describe('Category Hooks', () => {
     });
   });
 
-  describe('useMenuCategories', () => {
-    it('should return formatted menu categories data', async () => {
+  describe("useMenuCategories", () => {
+    it("should return formatted menu categories data", async () => {
       const mocks = [
         {
           request: {
             query: GET_CATEGORIES_WITH_PRODUCTS_COUNT,
             variables: {
-              brandId: 'brand-1',
-              pointId: 'point-1',
-              orderType: 'DELIVERY',
+              brandId: "brand-1",
+              pointId: "point-1",
+              orderType: "DELIVERY",
             },
           },
           result: {
@@ -454,11 +456,12 @@ describe('Category Hooks', () => {
       ];
 
       const { result } = renderHook(
-        () => useMenuCategories({
-          brandId: 'brand-1',
-          pointId: 'point-1',
-          orderType: 'DELIVERY',
-        }),
+        () =>
+          useMenuCategories({
+            brandId: "brand-1",
+            pointId: "point-1",
+            orderType: "DELIVERY",
+          }),
         {
           wrapper: createWrapper(mocks),
         }
@@ -470,13 +473,15 @@ describe('Category Hooks', () => {
 
       expect(result.current.categories).toEqual(mockCategories);
       expect(result.current.error).toBeNull();
-      expect(typeof result.current.refetch).toBe('function');
+      expect(typeof result.current.refetch).toBe("function");
     });
   });
 });
 
 // Test utilities
-export const createMockCategory = (overrides: Partial<typeof mockCategory> = {}) => ({
+export const createMockCategory = (
+  overrides: Partial<typeof mockCategory> = {}
+) => ({
   ...mockCategory,
   ...overrides,
 });

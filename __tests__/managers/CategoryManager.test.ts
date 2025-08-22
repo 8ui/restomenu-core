@@ -4,7 +4,10 @@ import {
   ApolloLink,
   Observable,
 } from "@apollo/client";
-import { CategoryManager } from "../../src/managers/CategoryManager";
+import {
+  CategoryManager,
+  CategoryManagerFactory,
+} from "../../src/managers/CategoryManager";
 import {
   GET_CATEGORIES_DETAIL,
   GET_CATEGORIES_WITH_PRODUCTS_COUNT,
@@ -84,7 +87,7 @@ describe("CategoryManager", () => {
     });
   });
 
-  describe("getForBrand", () => {
+  describe("getForAdmin", () => {
     it("should fetch categories for brand successfully", async () => {
       const mockResponse = {
         data: {
@@ -98,7 +101,7 @@ describe("CategoryManager", () => {
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.getForBrand();
+      const result = await categoryManager.getForAdmin();
 
       expect(result.categories).toEqual(mockCategories);
       expect(result.total).toBe(2);
@@ -114,7 +117,7 @@ describe("CategoryManager", () => {
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.getForBrand();
+      const result = await categoryManager.getForAdmin();
 
       expect(result.categories).toEqual([]);
       expect(result.total).toBe(0);
@@ -127,14 +130,14 @@ describe("CategoryManager", () => {
         client: mockClient,
       });
 
-      const result = await categoryManagerWithoutBrandId.getForBrand();
+      const result = await categoryManagerWithoutBrandId.getForAdmin();
 
       expect(result.error).toBeDefined();
       expect(result.error?.message).toContain("brandId is required");
     });
   });
 
-  describe("getWithProductsCount", () => {
+  describe("getForMenu", () => {
     it("should fetch categories with products count", async () => {
       const mockResponse = {
         data: {
@@ -148,7 +151,7 @@ describe("CategoryManager", () => {
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.getWithProductsCount({
+      const result = await categoryManager.getForMenu({
         pointId: "point-1",
         orderType: "DELIVERY",
       });
@@ -157,7 +160,7 @@ describe("CategoryManager", () => {
       expect(result.total).toBe(2);
     });
 
-    it("should apply filters correctly", async () => {
+    it("should filter empty categories when includeEmpty is false", async () => {
       const mockResponse = {
         data: {
           categories: mockCategories,
@@ -170,17 +173,16 @@ describe("CategoryManager", () => {
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.getWithProductsCount({
+      const result = await categoryManager.getForMenu({
         pointId: "point-1",
         orderType: "DELIVERY",
-        filters: {
-          isActive: true,
-          parentId: null,
-        },
+        includeEmpty: false,
       });
 
-      expect(result.categories).toHaveLength(1);
-      expect(result.categories[0].parentId).toBeNull();
+      expect(result.categories).toHaveLength(2);
+      expect(result.categories.every((cat: any) => cat.productsCount > 0)).toBe(
+        true
+      );
     });
   });
 
@@ -428,8 +430,8 @@ describe("CategoryManager", () => {
     });
   });
 
-  describe("updatePriority", () => {
-    it("should update category priority", async () => {
+  describe("reorderCategories", () => {
+    it("should reorder categories by updating priorities", async () => {
       const mockResponse = {
         data: {
           categoryUpdate: {
@@ -445,10 +447,12 @@ describe("CategoryManager", () => {
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.updatePriority("category-1", 5);
+      const result = await categoryManager.reorderCategories([
+        { categoryId: "category-1", newPriority: 5 },
+      ]);
 
       expect(result.success).toBe(true);
-      expect(result.category?.priority).toBe(5);
+      expect(result.updatedCount).toBe(1);
     });
   });
 
@@ -469,7 +473,7 @@ describe("CategoryManager", () => {
       const result = await categoryManager.search("Test");
 
       expect(result.categories).toEqual(mockCategories);
-      expect(result.searchTerm).toBe("Test");
+      expect("searchTerm" in result && result.searchTerm).toBe("Test");
     });
 
     it("should filter search results by search term", async () => {
@@ -492,50 +496,30 @@ describe("CategoryManager", () => {
     });
   });
 
-  describe("batchUpdate", () => {
-    it("should perform batch updates", async () => {
-      const updates = [
-        {
-          categoryId: "category-1",
-          updates: { name: "Updated Category 1" },
-        },
-        {
-          categoryId: "category-2",
-          updates: { name: "Updated Category 2" },
-        },
-      ];
-
-      const mockResponses = [
-        {
-          data: {
-            categoryUpdate: {
-              ...mockCategory,
-              name: "Updated Category 1",
-            },
+  describe("moveCategory", () => {
+    it("should move category to different parent", async () => {
+      const mockResponse = {
+        data: {
+          categoryUpdate: {
+            ...mockCategory,
+            parentId: "new-parent-id",
           },
         },
-        {
-          data: {
-            categoryUpdate: {
-              ...mockCategory,
-              id: "category-2",
-              name: "Updated Category 2",
-            },
-          },
-        },
-      ];
+      };
 
-      mockClient = createMockClient(mockResponses);
+      mockClient = createMockClient([mockResponse]);
       categoryManager = new CategoryManager({
         client: mockClient,
         defaultBrandId: "brand-1",
       });
 
-      const result = await categoryManager.batchUpdate(updates);
+      const result = await categoryManager.moveCategory(
+        "category-1",
+        "new-parent-id"
+      );
 
-      expect(result.successCount).toBe(2);
-      expect(result.errorCount).toBe(0);
-      expect(result.results).toHaveLength(2);
+      expect(result.success).toBe(true);
+      expect(result.category?.parentId).toBe("new-parent-id");
     });
   });
 
@@ -561,8 +545,8 @@ describe("CategoryManager", () => {
   });
 
   describe("static factory methods", () => {
-    it("should create instance with create method", () => {
-      const manager = CategoryManager.create({
+    it("should create instance with factory create method", () => {
+      const manager = CategoryManagerFactory.create({
         client: mockClient,
         defaultBrandId: "brand-1",
       });
@@ -570,8 +554,11 @@ describe("CategoryManager", () => {
       expect(manager).toBeInstanceOf(CategoryManager);
     });
 
-    it("should create instance with createWithClient method", () => {
-      const manager = CategoryManager.createWithClient(mockClient, "brand-1");
+    it("should create instance with factory createWithClient method", () => {
+      const manager = CategoryManagerFactory.createWithClient(
+        mockClient,
+        "brand-1"
+      );
 
       expect(manager).toBeInstanceOf(CategoryManager);
     });

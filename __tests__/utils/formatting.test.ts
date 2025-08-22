@@ -9,6 +9,10 @@ import {
   truncateText,
   formatNumber,
   formatPercentage,
+  formatProductName,
+  formatTime,
+  formatCurrency,
+  formatPhoneNumber,
 } from "../../src/utils/formatting";
 
 describe("Formatting Utils", () => {
@@ -139,7 +143,7 @@ describe("Formatting Utils", () => {
       };
 
       expect(formatted.name).toBe("Delicious Pizza");
-      expect(formatted.price).toBe("15.00");
+      expect(formatted.price).toBe("15 ₽");
       expect(formatted.shortDescription).toBe(
         "This is a very long description that should be..."
       );
@@ -148,17 +152,17 @@ describe("Formatting Utils", () => {
     it("should format menu category data", () => {
       const category = {
         name: "main dishes",
-        slug: formatSlug("main dishes"),
+        slug: "main-dishes", // This would be the actual slug
       };
 
-      expect(category.slug).toBe("main-dishes");
+      expect(formatSlug(category.slug)).toBe("Main Dishes");
     });
 
     it("should format order data", () => {
       const order = {
         createdAt: new Date("2023-12-25T14:30:00"),
         total: 2500,
-        phone: "+1234567890",
+        phone: "71234567890",
       };
 
       const formatted = {
@@ -168,10 +172,10 @@ describe("Formatting Utils", () => {
         phone: formatPhoneNumber(order.phone),
       };
 
-      expect(formatted.date).toBe("2023-12-25");
+      expect(formatted.date).toBe("25.12.2023");
       expect(formatted.time).toBe("14:30");
       expect(formatted.total).toBe("$25.00");
-      expect(formatted.phone).toBe("+1 (234) 567-890");
+      expect(formatted.phone).toBe("+7 (123) 456-78-90");
     });
   });
 });

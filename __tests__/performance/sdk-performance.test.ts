@@ -215,7 +215,9 @@ describe("SDK Performance Tests", () => {
 
       const { duration } = await createPerformanceHelpers.measureAsyncOperation(
         async () => {
-          await managers.menu.getOrganizedMenuData();
+          const menuResult = await managers.menu.getFullMenuData();
+          // Access organized data from result
+          const organizedData = menuResult.data?.organizedCategories;
         }
       );
 
@@ -227,24 +229,34 @@ describe("SDK Performance Tests", () => {
     it("should execute complex queries within threshold", async () => {
       const complexQueries = [
         () => managers.product.getForMenu({ categoryId: "category-1" }),
+        () => managers.product.getForMenu(), // Changed to use ProductManager method
         () =>
-          managers.category.getWithProductsCount({
+          managers.menu.getFilteredMenu({
+            brandId: "brand-1",
             pointId: "point-1",
             orderType: "DELIVERY",
+            filters: { searchTerm: "pizza" },
           }),
-        () => managers.menu.search({ searchTerm: "pizza" }),
         () =>
-          managers.menu.filterMenu({
-            categoryId: "category-1",
-            priceRange: { min: 500, max: 1500 },
-            sortBy: "name",
-            sortOrder: "asc",
+          managers.menu.getFilteredMenu({
+            brandId: "brand-1",
+            pointId: "point-1",
+            orderType: "DELIVERY",
+            filters: {
+              categoryId: "category-1",
+              priceRange: { min: 500, max: 1500 },
+              sortBy: "name" as const,
+              sortOrder: "asc" as const,
+            },
           }),
       ];
 
       for (const queryFn of complexQueries) {
         const { duration } =
-          await createPerformanceHelpers.measureAsyncOperation(queryFn);
+          await createPerformanceHelpers.measureAsyncOperation(async () => {
+            const result = await queryFn();
+            return result;
+          });
         expect(duration).toBeLessThan(PERFORMANCE_THRESHOLDS.QUERY_EXECUTION);
       }
     });
@@ -272,7 +284,7 @@ describe("SDK Performance Tests", () => {
       // Perform many operations
       for (let i = 0; i < 100; i++) {
         await managers.product.getForMenu();
-        await managers.category.getForBrand();
+        await managers.category.getForAdmin();
 
         // Periodically clean up
         if (i % 10 === 0) {
@@ -326,8 +338,9 @@ describe("SDK Performance Tests", () => {
 
       const { duration } = await createPerformanceHelpers.measureAsyncOperation(
         async () => {
-          await managers.menu.getMenuData();
-          await managers.menu.getOrganizedMenuData();
+          const menuResult = await managers.menu.getFullMenuData();
+          // Access organized data from result
+          const organizedData = menuResult.data?.organizedCategories;
         }
       );
 
@@ -339,8 +352,8 @@ describe("SDK Performance Tests", () => {
         async () => {
           await Promise.all([
             managers.product.getForAdmin(),
-            managers.category.getForBrand(),
-            managers.menu.getMenuStats(),
+            managers.category.getForAdmin(),
+            managers.menu.getFullMenuData(),
           ]);
         }
       );
@@ -354,7 +367,12 @@ describe("SDK Performance Tests", () => {
       const { duration } = await createPerformanceHelpers.measureAsyncOperation(
         async () => {
           for (const term of searchTerms) {
-            await managers.product.search({ searchTerm: term });
+            await managers.product.search({
+              searchTerm: term,
+              brandId: "brand-1",
+              pointId: "point-1",
+              orderType: "DELIVERY",
+            });
           }
         }
       );
@@ -369,13 +387,22 @@ describe("SDK Performance Tests", () => {
         { categoryId: "category-1" },
         { priceRange: { min: 500, max: 1000 } },
         { tagIds: ["tag-1", "tag-2"] },
-        { searchTerm: "test", sortBy: "price", sortOrder: "desc" },
+        {
+          searchTerm: "test",
+          sortBy: "price" as const,
+          sortOrder: "desc" as const,
+        },
       ];
 
       const { duration } = await createPerformanceHelpers.measureAsyncOperation(
         async () => {
           for (const filter of filters) {
-            await managers.menu.filterMenu(filter as any);
+            await managers.menu.getFilteredMenu({
+              brandId: "brand-1",
+              pointId: "point-1",
+              orderType: "DELIVERY",
+              filters: filter,
+            });
           }
         }
       );
@@ -388,7 +415,7 @@ describe("SDK Performance Tests", () => {
 
   describe("Performance Monitoring", () => {
     it("should track operation performance", () => {
-      performanceMonitor.markStart("test-operation");
+      const endTiming = performanceMonitor.startTiming("test-operation");
 
       // Simulate some work
       const start = performance.now();
@@ -396,18 +423,17 @@ describe("SDK Performance Tests", () => {
         // Wait 10ms
       }
 
-      performanceMonitor.markEnd("test-operation");
+      endTiming();
 
-      const metrics = performanceMonitor.getMetrics();
-      expect(metrics).toHaveProperty("test-operation");
-      expect(metrics["test-operation"]).toBeGreaterThan(0);
+      const stats = performanceMonitor.getStats("test-operation");
+      expect(stats).toBeDefined();
+      expect(stats?.average).toBeGreaterThan(0);
     });
 
     it("should provide performance insights", () => {
-      const insights = performanceMonitor.getInsights();
-      expect(insights).toBeDefined();
-      expect(Array.isArray(insights.slowOperations)).toBe(true);
-      expect(Array.isArray(insights.memoryLeaks)).toBe(true);
+      const allStats = performanceMonitor.getStats();
+      expect(allStats).toBeDefined();
+      expect(typeof allStats).toBe("object");
     });
   });
 });
@@ -418,9 +444,9 @@ function getMemoryUsage(): number {
     return process.memoryUsage().heapUsed;
   }
 
-  // Fallback for browser environment
-  if (typeof performance !== "undefined" && (performance as any).memory) {
-    return (performance as any).memory.usedJSHeapSize;
+  // Fallback for browser environment with type guard
+  if (typeof performance !== "undefined" && performance.memory) {
+    return performance.memory.usedJSHeapSize;
   }
 
   // Fallback to timestamp as proxy

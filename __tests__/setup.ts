@@ -4,6 +4,17 @@
 
 import "@testing-library/jest-dom";
 
+// Type declaration for performance.memory
+declare global {
+  interface Performance {
+    memory?: {
+      usedJSHeapSize: number;
+      totalJSHeapSize: number;
+      jsHeapSizeLimit: number;
+    };
+  }
+}
+
 // Enhanced console methods to reduce noise in tests
 const originalError = console.error;
 const originalWarn = console.warn;
@@ -71,7 +82,7 @@ beforeEach(() => {
   }
 });
 
-// Mock performance API for Node environment
+// Mock performance API for Node environment with memory extension
 if (typeof performance === "undefined") {
   global.performance = {
     now: () => Date.now(),
@@ -81,7 +92,19 @@ if (typeof performance === "undefined") {
     getEntriesByType: () => [],
     clearMarks: () => {},
     clearMeasures: () => {},
+    memory: {
+      usedJSHeapSize: 1024 * 1024 * 10, // 10MB default
+      totalJSHeapSize: 1024 * 1024 * 50, // 50MB total
+      jsHeapSizeLimit: 1024 * 1024 * 100, // 100MB limit
+    },
   } as any;
+} else if (typeof performance !== "undefined" && !performance.memory) {
+  // Add memory property if performance exists but doesn't have memory
+  (performance as any).memory = {
+    usedJSHeapSize: 1024 * 1024 * 10,
+    totalJSHeapSize: 1024 * 1024 * 50,
+    jsHeapSizeLimit: 1024 * 1024 * 100,
+  };
 }
 
 // Mock requestAnimationFrame
@@ -99,31 +122,56 @@ if (typeof cancelAnimationFrame === "undefined") {
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  observe() {
-    return null;
+  root: Element | Document | null = null;
+  rootMargin: string = "0px";
+  thresholds: ReadonlyArray<number> = [0];
+
+  constructor(
+    public callback: IntersectionObserverCallback,
+    public options?: IntersectionObserverInit
+  ) {
+    this.root = options?.root || null;
+    this.rootMargin = options?.rootMargin || "0px";
+    this.thresholds = options?.threshold
+      ? Array.isArray(options.threshold)
+        ? options.threshold
+        : [options.threshold]
+      : [0];
   }
-  disconnect() {
-    return null;
+
+  observe(_target: Element): void {
+    // Mock implementation
   }
-  unobserve() {
-    return null;
+
+  disconnect(): void {
+    // Mock implementation
   }
-};
+
+  unobserve(_target: Element): void {
+    // Mock implementation
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+} as any;
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  observe() {
-    return null;
+  constructor(public callback: ResizeObserverCallback) {}
+
+  observe(_target: Element, _options?: ResizeObserverOptions): void {
+    // Mock implementation
   }
-  disconnect() {
-    return null;
+
+  disconnect(): void {
+    // Mock implementation
   }
-  unobserve() {
-    return null;
+
+  unobserve(_target: Element): void {
+    // Mock implementation
   }
-};
+} as any;
 
 // Mock fetch for tests that might need it
 global.fetch = jest.fn(() =>

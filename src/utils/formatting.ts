@@ -150,3 +150,58 @@ export function formatName(name: string): string {
     .map((word) => capitalize(word))
     .join(" ");
 }
+
+/**
+ * Formats a product name (title case)
+ */
+export function formatProductName(name: string): string {
+  return name
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Formats time from date to HH:mm format
+ */
+export function formatTime(date: Date | string): string {
+  const d = new Date(date);
+  return d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/**
+ * Formats currency amount with symbol
+ */
+export function formatCurrency(
+  amount: number,
+  currency: string = "RUB"
+): string {
+  const value = amount / 100; // Convert kopecks to rubles
+  const symbols: Record<string, string> = {
+    RUB: "₽",
+    USD: "$",
+    EUR: "€",
+  };
+
+  const symbol = symbols[currency] || currency;
+  return `${symbol}${value.toFixed(2)}`;
+}
+
+/**
+ * Formats phone number to readable format
+ */
+export function formatPhoneNumber(phone: string): string {
+  // Simple phone formatting - can be enhanced based on requirements
+  const cleaned = phone.replace(/\D/g, "");
+
+  if (cleaned.startsWith("7") && cleaned.length === 11) {
+    // Russian format: +7 (XXX) XXX-XX-XX
+    return `+7 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9, 11)}`;
+  }
+
+  return phone; // Return original if format not recognized
+}
