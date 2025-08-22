@@ -23,23 +23,6 @@ export const BRAND_DETAIL_FRAGMENT = gql`
   }
 `;
 
-// ================== CITY FRAGMENTS ==================
-export const CITY_BASE_FRAGMENT = gql`
-  fragment CityBase on City {
-    id
-    name
-  }
-`;
-
-export const CITY_DETAIL_FRAGMENT = gql`
-  fragment CityDetail on City {
-    id
-    name
-    isActive
-    priority
-  }
-`;
-
 // ================== POINT FRAGMENTS ==================
 export const POINT_BASE_FRAGMENT = gql`
   fragment PointBase on Point {
@@ -61,12 +44,64 @@ export const POINT_DETAIL_FRAGMENT = gql`
   }
 `;
 
+// ================== CITY FRAGMENTS ==================
+export const CITY_BASE_FRAGMENT = gql`
+  fragment CityBase on City {
+    id
+    name
+  }
+`;
+
+export const CITY_DETAIL_FRAGMENT = gql`
+  fragment CityDetail on City {
+    id
+    name
+  }
+`;
+
+// City with related brands
+export const CITY_WITH_BRANDS_FRAGMENT = gql`
+  fragment CityWithBrands on City {
+    id
+    name
+    brands {
+      ...BrandBase
+    }
+  }
+  ${BRAND_BASE_FRAGMENT}
+`;
+
+// City with points for specific brand and filter
+export const CITY_WITH_POINTS_FRAGMENT = gql`
+  fragment CityWithPoints on City {
+    id
+    name
+    points(input: $pointsInput) {
+      ...PointDetail
+    }
+  }
+  ${POINT_DETAIL_FRAGMENT}
+`;
+
+// City with both brands and points (comprehensive)
+export const CITY_COMPREHENSIVE_FRAGMENT = gql`
+  fragment CityComprehensive on City {
+    id
+    name
+    brands {
+      ...BrandBase
+    }
+  }
+  ${BRAND_BASE_FRAGMENT}
+`;
+
 // ================== CATEGORY FRAGMENTS ==================
 export const CATEGORY_BASE_FRAGMENT = gql`
   fragment CategoryBase on Category {
     id
     name
     slug
+    brandId
   }
 `;
 
@@ -80,6 +115,11 @@ export const CATEGORY_DETAIL_FRAGMENT = gql`
     isActive
     brandId
     parentId
+    pointBinds {
+      categoryId
+      pointId
+      orderType
+    }
   }
 `;
 
@@ -94,6 +134,63 @@ export const CATEGORY_WITH_PRODUCTS_COUNT_FRAGMENT = gql`
     brandId
     parentId
     pointBinds {
+      categoryId
+      pointId
+      orderType
+    }
+  }
+`;
+
+export const CATEGORY_WITH_CHILDREN_FRAGMENT = gql`
+  fragment CategoryWithChildren on Category {
+    id
+    name
+    slug
+    imageUrl
+    priority
+    isActive
+    brandId
+    parentId
+    children {
+      id
+      name
+      slug
+      imageUrl
+      priority
+      isActive
+      brandId
+      parentId
+    }
+    pointBinds {
+      categoryId
+      pointId
+      orderType
+    }
+  }
+`;
+
+export const CATEGORY_WITH_PARENT_FRAGMENT = gql`
+  fragment CategoryWithParent on Category {
+    id
+    name
+    slug
+    imageUrl
+    priority
+    isActive
+    brandId
+    parentId
+    parent {
+      id
+      name
+      slug
+      imageUrl
+      priority
+      isActive
+      brandId
+      parentId
+    }
+    pointBinds {
+      categoryId
       pointId
       orderType
     }
@@ -244,7 +341,7 @@ export const USER_DETAIL_FRAGMENT = gql`
 
 // ================== ORDER FRAGMENTS ==================
 export const ORDER_BASE_FRAGMENT = gql`
-  fragment OrderBase on Order {
+  fragment OrderBase on OrderPreOrder {
     id
     number
     status
@@ -253,7 +350,7 @@ export const ORDER_BASE_FRAGMENT = gql`
 `;
 
 export const ORDER_DETAIL_FRAGMENT = gql`
-  fragment OrderDetail on Order {
+  fragment OrderDetail on OrderPreOrder {
     id
     number
     type
@@ -263,6 +360,13 @@ export const ORDER_DETAIL_FRAGMENT = gql`
     personsNumber
     pointId
     brandId
+    creatorType
+    creatorId
+    dueTime
+    createdTime
+    customerId
+    customerName
+    customerPhone
   }
 `;
 
@@ -281,6 +385,18 @@ export const ORDER_ITEM_DETAIL_FRAGMENT = gql`
     productId
     price
     quantity
+    name
+    imageUrl
+    productVariantProperties {
+      productVariantPropertyId
+      productVariantPropertyName
+      productVariantPropertyValueId
+      productVariantPropertyValueName
+    }
+    categories {
+      categoryId
+      categoryName
+    }
     product {
       id
       name
@@ -295,7 +411,7 @@ export const ORDER_ITEM_DETAIL_FRAGMENT = gql`
 `;
 
 export const ORDER_WITH_ITEMS_FRAGMENT = gql`
-  fragment OrderWithItems on Order {
+  fragment OrderWithItems on OrderPreOrder {
     ...OrderDetail
     items {
       ...OrderItemDetail
@@ -326,6 +442,9 @@ export const FRAGMENTS = {
   // City
   CITY_BASE: CITY_BASE_FRAGMENT,
   CITY_DETAIL: CITY_DETAIL_FRAGMENT,
+  CITY_WITH_BRANDS: CITY_WITH_BRANDS_FRAGMENT,
+  CITY_WITH_POINTS: CITY_WITH_POINTS_FRAGMENT,
+  CITY_COMPREHENSIVE: CITY_COMPREHENSIVE_FRAGMENT,
 
   // Point
   POINT_BASE: POINT_BASE_FRAGMENT,
@@ -335,6 +454,8 @@ export const FRAGMENTS = {
   CATEGORY_BASE: CATEGORY_BASE_FRAGMENT,
   CATEGORY_DETAIL: CATEGORY_DETAIL_FRAGMENT,
   CATEGORY_WITH_PRODUCTS_COUNT: CATEGORY_WITH_PRODUCTS_COUNT_FRAGMENT,
+  CATEGORY_WITH_CHILDREN: CATEGORY_WITH_CHILDREN_FRAGMENT,
+  CATEGORY_WITH_PARENT: CATEGORY_WITH_PARENT_FRAGMENT,
 
   // Product
   PRODUCT_BASE: PRODUCT_BASE_FRAGMENT,
