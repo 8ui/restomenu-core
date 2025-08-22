@@ -465,26 +465,22 @@ export class RestomenuManagers {
     } = {}
   ) {
     // Initialize managers with shared config
-    this.product = ProductManagerFactory.createWithDefaults(
+    this.product = ProductManagerFactory.createWithClient(apolloClient, {
+      brandId: defaults.brandId,
+      pointId: defaults.pointId,
+      orderType: defaults.orderType,
+    });
+
+    this.category = CategoryManagerFactory.createWithClient(
       apolloClient,
-      defaults.brandId,
-      defaults.pointId,
-      defaults.orderType
+      defaults.brandId
     );
 
-    this.category = CategoryManagerFactory.createWithDefaults(
-      apolloClient,
-      defaults.brandId,
-      defaults.pointId,
-      defaults.orderType
-    );
-
-    this.menu = MenuManagerFactory.createWithDefaults(
-      apolloClient,
-      defaults.brandId,
-      defaults.pointId,
-      defaults.orderType
-    );
+    this.menu = MenuManagerFactory.createWithClient(apolloClient, {
+      brandId: defaults.brandId,
+      pointId: defaults.pointId,
+      orderType: defaults.orderType,
+    });
 
     this.brand = BrandManagerFactory.createWithDefaults(
       apolloClient,
@@ -554,21 +550,13 @@ export class RestomenuManagers {
       performance: this.performance,
     };
   }
-}
-
-// Also export the cache manager and performance monitor directly
-export { RestomenuCacheManager as CacheManager };
-export { RestomenuPerformanceMonitor as PerformanceMonitor };
-    this.performance = new RestomenuPerformanceMonitor();
-  }
-
   /**
    * Invalidate all caches
    */
   invalidateAllCaches() {
-    this.product.invalidateCache();
-    this.category.invalidateCache();
-    this.menu.invalidateCache();
+    this.product?.invalidateCache();
+    this.category?.invalidateCache();
+    this.menu?.invalidateCache();
   }
 
   /**
@@ -582,9 +570,9 @@ export { RestomenuPerformanceMonitor as PerformanceMonitor };
     } = {}
   ) {
     await Promise.all([
-      this.menu.preloadMenu(options),
-      this.product.preloadForMenu(options),
-      this.category.preloadCategories(options.brandId),
+      this.menu?.preloadMenu(options),
+      this.product?.preloadForMenu(options),
+      this.category?.preloadCategories(options.brandId),
     ]);
   }
 }
@@ -593,4 +581,5 @@ export { RestomenuPerformanceMonitor as PerformanceMonitor };
 export {
   RestomenuCacheManager as CacheManager,
   RestomenuPerformanceMonitor as PerformanceMonitor,
+  RestomenuManagers as Managers,
 };

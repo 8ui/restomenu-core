@@ -2,8 +2,8 @@ import { ApolloClient } from "@apollo/client";
 import {
   GET_POINT_BASE,
   GET_POINT_DETAIL,
-  GET_POINTS_FOR_BRAND,
-  GET_POINTS_FOR_CITY,
+  GET_POINTS_BY_BRAND,
+  GET_POINTS_BY_CITY,
   GET_ACTIVE_POINTS,
 } from "../graphql/queries/point";
 import { CREATE_POINT, UPDATE_POINT } from "../graphql/mutations/point";
@@ -93,24 +93,30 @@ export class PointManager {
     }
 
     try {
-      const filterInput = {
-        brandId: targetBrandId,
-        filter: {
-          ...(filters.cityId && { cityId: filters.cityId }),
-          ...(filters.isActive !== undefined && { isActive: filters.isActive }),
-          ...(filters.ids && { ids: filters.ids }),
-        },
-      };
-
       const result = await this.client.query({
-        query: GET_POINTS_FOR_BRAND,
-        variables: { input: filterInput },
+        query: GET_POINTS_BY_BRAND,
+        variables: { brandId: targetBrandId },
         fetchPolicy: "cache-first",
       });
 
+      let points = result.data.points || [];
+
+      // Apply client-side filters
+      if (filters.cityId !== undefined) {
+        points = points.filter((point: any) => point.cityId === filters.cityId);
+      }
+      if (filters.isActive !== undefined) {
+        points = points.filter(
+          (point: any) => point.isActive === filters.isActive
+        );
+      }
+      if (filters.ids) {
+        points = points.filter((point: any) => filters.ids!.includes(point.id));
+      }
+
       return {
-        points: result.data.points || [],
-        total: result.data.points?.length || 0,
+        points,
+        total: points.length,
         loading: false,
         error: null,
       };
@@ -137,19 +143,19 @@ export class PointManager {
 
     try {
       const result = await this.client.query({
-        query: GET_POINTS_FOR_CITY,
-        variables: {
-          input: {
-            brandId: targetBrandId,
-            filter: { cityId: targetCityId },
-          },
-        },
+        query: GET_POINTS_BY_CITY,
+        variables: { cityId: targetCityId },
         fetchPolicy: "cache-first",
       });
 
+      let points = result.data.points || [];
+
+      // Apply brand filter if needed
+      points = points.filter((point: any) => point.brandId === targetBrandId);
+
       return {
-        points: result.data.points || [],
-        total: result.data.points?.length || 0,
+        points,
+        total: points.length,
         loading: false,
         error: null,
       };
@@ -315,7 +321,11 @@ export class PointManager {
    */
   async searchPoints(searchTerm: string, brandId?: string, cityId?: string) {
     try {
-      const result = await this.getPointsForBrand(brandId, { cityId });
+      const filterToApply: PointFilter = {};
+      if (cityId !== undefined) {
+        filterToApply.cityId = cityId;
+      }
+      const result = await this.getPointsForBrand(brandId, filterToApply);
 
       if (result.error) {
         return result;
@@ -348,10 +358,11 @@ export class PointManager {
    */
   async getPointSelectionData(brandId?: string, cityId?: string) {
     try {
-      const result = await this.getPointsForBrand(brandId, {
-        cityId,
-        isActive: true,
-      });
+      const filterToApply: PointFilter = { isActive: true };
+      if (cityId !== undefined) {
+        filterToApply.cityId = cityId;
+      }
+      const result = await this.getPointsForBrand(brandId, filterToApply);
 
       if (result.error) {
         return { options: [], error: result.error };
@@ -421,10 +432,13 @@ export class PointManagerFactory {
     defaultBrandId?: string,
     defaultCityId?: string
   ): PointManager {
-    return new PointManager({
-      client,
-      defaultBrandId,
-      defaultCityId,
-    });
+    const config: PointManagerConfig = { client };
+    if (defaultBrandId !== undefined) {
+      config.defaultBrandId = defaultBrandId;
+    }
+    if (defaultCityId !== undefined) {
+      config.defaultCityId = defaultCityId;
+    }
+    return new PointManager(config);
   }
 }

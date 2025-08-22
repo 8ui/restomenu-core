@@ -69,6 +69,7 @@ export {
   useOrganizedMenuData,
   useMenuFilter,
   useBrand,
+  useBrandBySlug,
   useBrands,
   useActiveBrands,
   useBrandsByAccount,

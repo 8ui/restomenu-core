@@ -1,9 +1,8 @@
 import { ApolloClient } from "@apollo/client";
 import {
-  GET_USER_PROFILE,
+  GET_ME_DETAIL,
   GET_USER_DETAIL,
-  GET_EMPLOYEES,
-  GET_EMPLOYEE_DETAIL,
+  GET_USERS_DETAIL,
 } from "../graphql/queries/user";
 import {
   AUTHENTICATE_USER,
@@ -57,12 +56,12 @@ export class UserManager {
   async getCurrentUserProfile() {
     try {
       const result = await this.client.query({
-        query: GET_USER_PROFILE,
+        query: GET_ME_DETAIL,
         fetchPolicy: "cache-first",
       });
 
       return {
-        user: result.data.user,
+        user: result.data.me,
         loading: false,
         error: null,
       };
@@ -105,25 +104,61 @@ export class UserManager {
    */
   async getEmployees(filters: EmployeeFilter = {}) {
     try {
-      const filterInput = {
-        filter: {
-          ...(filters.accountsId && { accountsId: filters.accountsId }),
-          ...(filters.brandsId && { brandsId: filters.brandsId }),
-          ...(filters.pointsId && { pointsId: filters.pointsId }),
-          ...(filters.roles && { roles: filters.roles }),
-          ...(filters.isActive !== undefined && { isActive: filters.isActive }),
-        },
-      };
-
+      // Use the general users query to get employees
       const result = await this.client.query({
-        query: GET_EMPLOYEES,
-        variables: { input: filterInput },
+        query: GET_USERS_DETAIL,
+        variables: { input: { filter: {} } },
         fetchPolicy: "cache-first",
       });
 
+      let users = result.data.users || [];
+
+      // Filter users that have employee records
+      let employees: any[] = [];
+      users.forEach((user: any) => {
+        if (user.employees && user.employees.length > 0) {
+          employees = employees.concat(user.employees);
+        }
+      });
+
+      // Apply client-side filters
+      if (filters.accountsId) {
+        employees = employees.filter((emp: any) =>
+          filters.accountsId!.includes(emp.accountId)
+        );
+      }
+      if (filters.brandsId) {
+        employees = employees.filter(
+          (emp: any) =>
+            emp.brandsId &&
+            emp.brandsId.some((brandId: string) =>
+              filters.brandsId!.includes(brandId)
+            )
+        );
+      }
+      if (filters.pointsId) {
+        employees = employees.filter(
+          (emp: any) =>
+            emp.pointsId &&
+            emp.pointsId.some((pointId: string) =>
+              filters.pointsId!.includes(pointId)
+            )
+        );
+      }
+      if (filters.roles) {
+        employees = employees.filter((emp: any) =>
+          filters.roles!.includes(emp.role)
+        );
+      }
+      if (filters.isActive !== undefined) {
+        employees = employees.filter(
+          (emp: any) => emp.isActive === filters.isActive
+        );
+      }
+
       return {
-        employees: result.data.employees || [],
-        total: result.data.employees?.length || 0,
+        employees,
+        total: employees.length,
         loading: false,
         error: null,
       };
@@ -142,16 +177,22 @@ export class UserManager {
    */
   async getEmployeeById(employeeId: string) {
     try {
-      const result = await this.client.query({
-        query: GET_EMPLOYEE_DETAIL,
-        variables: { input: { id: employeeId } },
-        fetchPolicy: "cache-first",
-      });
+      // Since there's no direct employee query, we need to get all employees
+      // and filter by ID
+      const allEmployees = await this.getEmployees();
+
+      if (allEmployees.error) {
+        throw allEmployees.error;
+      }
+
+      const employee = allEmployees.employees.find(
+        (emp: any) => emp.id === employeeId
+      );
 
       return {
-        employee: result.data.employee,
+        employee: employee || null,
         loading: false,
-        error: null,
+        error: employee ? null : new Error("Employee not found"),
       };
     } catch (error) {
       return {
@@ -213,9 +254,9 @@ export class UserManager {
       if (result.data?.authentication) {
         // Update the cache with user data
         this.client.writeQuery({
-          query: GET_USER_PROFILE,
+          query: GET_ME_DETAIL,
           data: {
-            user: result.data.authentication,
+            me: result.data.authentication,
           },
         });
       }
@@ -246,9 +287,9 @@ export class UserManager {
       if (result.data?.authenticationAnonymous) {
         // Update the cache with anonymous user data
         this.client.writeQuery({
-          query: GET_USER_PROFILE,
+          query: GET_ME_DETAIL,
           data: {
-            user: result.data.authenticationAnonymous,
+            me: result.data.authenticationAnonymous,
           },
         });
       }
@@ -304,9 +345,9 @@ export class UserManager {
       if (result.data?.restoplaceAuthentication) {
         // Update the cache with user data
         this.client.writeQuery({
-          query: GET_USER_PROFILE,
+          query: GET_ME_DETAIL,
           data: {
-            user: result.data.restoplaceAuthentication,
+            me: result.data.restoplaceAuthentication,
           },
         });
       }
@@ -527,9 +568,10 @@ export class UserManagerFactory {
     client: ApolloClient<any>,
     defaultAccountId?: string
   ): UserManager {
-    return new UserManager({
-      client,
-      defaultAccountId,
-    });
+    const config: UserManagerConfig = { client };
+    if (defaultAccountId !== undefined) {
+      config.defaultAccountId = defaultAccountId;
+    }
+    return new UserManager(config);
   }
 }

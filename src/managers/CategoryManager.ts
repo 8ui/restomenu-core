@@ -1,18 +1,34 @@
 import { ApolloClient } from "@apollo/client";
 import {
+  GET_CATEGORY_DETAIL,
   GET_CATEGORIES_DETAIL,
+  GET_CATEGORIES_COUNT,
   GET_CATEGORIES_WITH_PRODUCTS_COUNT,
   GET_BRAND_CATEGORIES,
+  GET_ALL_BRAND_CATEGORIES,
   GET_PARENT_CATEGORIES,
   GET_SUBCATEGORIES,
+  GET_CATEGORIES_WITH_CHILDREN,
 } from "../graphql/queries/category";
 import {
   CREATE_CATEGORY,
   UPDATE_CATEGORY,
   DELETE_CATEGORY,
   TOGGLE_CATEGORY_ACTIVE,
-  UPDATE_CATEGORY_PRIORITY,
+  UPDATE_CATEGORY_POSITION,
+  UPDATE_CATEGORY_PARENT,
+  UPDATE_CATEGORY_IMAGE,
+  UPDATE_CATEGORY_POINT_BINDS,
 } from "../graphql/mutations/category";
+import type {
+  CategoryCreateInput,
+  CategoryUpdateInput,
+  CategoryDeleteInput,
+  CategoriesFilterInput,
+  OrderType,
+  NearType,
+  EndOfList,
+} from "../graphql-types";
 
 // ====================================================================
 // CATEGORY MANAGER - High-level business logic for category operations
@@ -27,16 +43,6 @@ export interface CategoryFilter {
   isActive?: boolean;
   parentId?: string | null;
   hasProducts?: boolean;
-}
-
-export interface CreateCategoryInput {
-  name: string;
-  slug?: string;
-  brandId: string;
-  parentId?: string | null;
-  imageUrl?: string;
-  priority?: number;
-  isActive?: boolean;
 }
 
 export interface CategoryHierarchy {
@@ -68,7 +74,7 @@ export class CategoryManager {
   async getForMenu(options: {
     brandId?: string;
     pointId: string;
-    orderType: string;
+    orderType: OrderType;
     includeEmpty?: boolean;
   }) {
     const brandId = options.brandId || this.config.defaultBrandId;
@@ -282,7 +288,7 @@ export class CategoryManager {
   /**
    * Create a new category with validation
    */
-  async create(input: CreateCategoryInput) {
+  async create(input: CategoryCreateInput) {
     try {
       // Validate required fields
       if (!input.name || !input.brandId) {
@@ -321,7 +327,7 @@ export class CategoryManager {
   /**
    * Update an existing category
    */
-  async update(input: any) {
+  async update(input: CategoryUpdateInput) {
     try {
       const result = await this.client.mutate({
         mutation: UPDATE_CATEGORY,
@@ -376,7 +382,7 @@ export class CategoryManager {
       const result = await this.client.mutate({
         mutation: DELETE_CATEGORY,
         variables: {
-          input: { categoryId, brandId: finalBrandId },
+          input: { id: categoryId, brandId: finalBrandId },
         },
         refetchQueries: [
           "GetBrandCategories",
@@ -417,8 +423,8 @@ export class CategoryManager {
       const result = await this.client.mutate({
         mutation: TOGGLE_CATEGORY_ACTIVE,
         variables: {
-          categoryId,
           brandId: finalBrandId,
+          id: categoryId,
           isActive: newActiveState,
         },
         optimisticResponse: {
@@ -447,12 +453,14 @@ export class CategoryManager {
   // ================== HIERARCHY MANAGEMENT ==================
 
   /**
-   * Reorder categories by updating priorities
+   * Reorder categories by updating positions
    */
   async reorderCategories(
     reorderData: Array<{
       categoryId: string;
-      newPriority: number;
+      positionAnchor?: string;
+      positionAnchorNearType?: NearType;
+      positionEndOfList?: EndOfList;
     }>,
     brandId?: string
   ) {
@@ -466,11 +474,13 @@ export class CategoryManager {
     try {
       for (const item of reorderData) {
         const result = await this.client.mutate({
-          mutation: UPDATE_CATEGORY_PRIORITY,
+          mutation: UPDATE_CATEGORY_POSITION,
           variables: {
-            categoryId: item.categoryId,
             brandId: finalBrandId,
-            priority: item.newPriority,
+            id: item.categoryId,
+            positionAnchor: item.positionAnchor,
+            positionAnchorNearType: item.positionAnchorNearType,
+            positionEndOfList: item.positionEndOfList,
           },
         });
         results.push(result);
@@ -513,9 +523,10 @@ export class CategoryManager {
         mutation: UPDATE_CATEGORY,
         variables: {
           input: {
-            categoryId,
+            id: categoryId,
             brandId: finalBrandId,
             parentId: newParentId,
+            isParentIdRemove: newParentId === null,
           },
         },
         refetchQueries: ["GetBrandCategories"],
@@ -548,9 +559,10 @@ export class CategoryManager {
       }
 
       const result = await this.client.query({
-        query: GET_CATEGORIES_DETAIL,
+        query: GET_CATEGORY_DETAIL,
         variables: {
-          input: { categoryId, brandId: finalBrandId },
+          brandId: finalBrandId,
+          id: categoryId,
         },
         fetchPolicy: "cache-first",
       });

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import {
   GET_BRAND_BASE,
   GET_BRAND_DETAIL,
+  GET_BRAND_BY_SLUG,
   GET_BRANDS_BASE,
   GET_BRANDS_DETAIL,
   GET_ACTIVE_BRANDS,
@@ -10,6 +11,7 @@ import {
 import { CREATE_ELECTRONIC_MENU } from "../graphql/mutations/brand";
 import type {
   BrandInput,
+  BrandBySlugInput,
   BrandsInput,
   ElectronicMenuCreateInput,
 } from "../graphql-types";
@@ -33,6 +35,21 @@ export const useBrand = ({
   const query = level === "base" ? GET_BRAND_BASE : GET_BRAND_DETAIL;
 
   return useQuery(query, {
+    variables: { input },
+    skip,
+    errorPolicy: "all",
+  });
+};
+
+// Hook for getting a single brand by slug
+export const useBrandBySlug = ({
+  input,
+  skip = false,
+}: {
+  input: BrandBySlugInput;
+  skip?: boolean;
+}) => {
+  return useQuery(GET_BRAND_BY_SLUG, {
     variables: { input },
     skip,
     errorPolicy: "all",
@@ -137,6 +154,7 @@ export const useBrandSelection = ({
 export const BRAND_HOOKS = {
   // Single brand hooks
   useBrand,
+  useBrandBySlug,
 
   // Multiple brands hooks
   useBrands,

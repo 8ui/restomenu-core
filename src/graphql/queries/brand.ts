@@ -51,6 +51,16 @@ export const GET_BRANDS_DETAIL = gql`
 
 // ================== SPECIALIZED QUERIES ==================
 
+// Get brand by slug
+export const GET_BRAND_BY_SLUG = gql`
+  query GetBrandBySlug($input: BrandBySlugInput!) {
+    brandBySlug(input: $input) {
+      ...BrandDetail
+    }
+  }
+  ${BRAND_DETAIL_FRAGMENT}
+`;
+
 // Get active brands only
 export const GET_ACTIVE_BRANDS = gql`
   query GetActiveBrands {
@@ -61,10 +71,10 @@ export const GET_ACTIVE_BRANDS = gql`
   ${BRAND_DETAIL_FRAGMENT}
 `;
 
-// Get brands by account
+// Get brands by account (using correct field name)
 export const GET_BRANDS_BY_ACCOUNT = gql`
   query GetBrandsByAccount($accountId: Uuid!) {
-    brands(input: { filter: { accountId: $accountId } }) {
+    brands(input: { filter: { accountsId: [$accountId] } }) {
       ...BrandDetail
     }
   }
@@ -76,6 +86,7 @@ export const BRAND_QUERIES = {
   // Single brand queries
   GET_BRAND_BASE,
   GET_BRAND_DETAIL,
+  GET_BRAND_BY_SLUG,
 
   // Multiple brands queries
   GET_BRANDS_BASE,

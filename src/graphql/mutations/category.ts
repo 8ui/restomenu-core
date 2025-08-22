@@ -43,28 +43,34 @@ export const DELETE_CATEGORY = gql`
 // Toggle category active status
 export const TOGGLE_CATEGORY_ACTIVE = gql`
   mutation ToggleCategoryActive(
-    $categoryId: Uuid!
     $brandId: Uuid!
+    $id: Uuid!
     $isActive: Boolean!
   ) {
-    categoryUpdate(
-      input: { categoryId: $categoryId, brandId: $brandId, isActive: $isActive }
-    ) {
+    categoryUpdate(input: { brandId: $brandId, id: $id, isActive: $isActive }) {
       id
       isActive
     }
   }
 `;
 
-// Update category priority
-export const UPDATE_CATEGORY_PRIORITY = gql`
-  mutation UpdateCategoryPriority(
-    $categoryId: Uuid!
+// Update category position
+export const UPDATE_CATEGORY_POSITION = gql`
+  mutation UpdateCategoryPosition(
     $brandId: Uuid!
-    $priority: Int!
+    $id: Uuid!
+    $positionAnchor: Uuid
+    $positionAnchorNearType: NearType
+    $positionEndOfList: EndOfList
   ) {
     categoryUpdate(
-      input: { categoryId: $categoryId, brandId: $brandId, priority: $priority }
+      input: {
+        brandId: $brandId
+        id: $id
+        positionAnchor: $positionAnchor
+        positionAnchorNearType: $positionAnchorNearType
+        positionEndOfList: $positionEndOfList
+      }
     ) {
       id
       priority
@@ -75,12 +81,18 @@ export const UPDATE_CATEGORY_PRIORITY = gql`
 // Update category parent
 export const UPDATE_CATEGORY_PARENT = gql`
   mutation UpdateCategoryParent(
-    $categoryId: Uuid!
     $brandId: Uuid!
+    $id: Uuid!
     $parentId: Uuid
+    $isParentIdRemove: Boolean
   ) {
     categoryUpdate(
-      input: { categoryId: $categoryId, brandId: $brandId, parentId: $parentId }
+      input: {
+        brandId: $brandId
+        id: $id
+        parentId: $parentId
+        isParentIdRemove: $isParentIdRemove
+      }
     ) {
       id
       parentId
@@ -91,12 +103,18 @@ export const UPDATE_CATEGORY_PARENT = gql`
 // Update category image
 export const UPDATE_CATEGORY_IMAGE = gql`
   mutation UpdateCategoryImage(
-    $categoryId: Uuid!
     $brandId: Uuid!
-    $imageUrl: String
+    $id: Uuid!
+    $imageUpload: Upload
+    $isImageRemove: Boolean
   ) {
     categoryUpdate(
-      input: { categoryId: $categoryId, brandId: $brandId, imageUrl: $imageUrl }
+      input: {
+        brandId: $brandId
+        id: $id
+        imageUpload: $imageUpload
+        isImageRemove: $isImageRemove
+      }
     ) {
       id
       imageUrl
@@ -104,15 +122,22 @@ export const UPDATE_CATEGORY_IMAGE = gql`
   }
 `;
 
-// ================== BATCH MUTATIONS ==================
-
-// Batch update categories (if supported by schema)
-export const BATCH_UPDATE_CATEGORIES = gql`
-  mutation BatchUpdateCategories($inputs: [CategoryUpdateInput!]!) {
-    categoryBatchUpdate(inputs: $inputs) {
+// Update category point binds
+export const UPDATE_CATEGORY_POINT_BINDS = gql`
+  mutation UpdateCategoryPointBinds(
+    $brandId: Uuid!
+    $id: Uuid!
+    $pointBinds: [CategoryPointBindInput!]!
+  ) {
+    categoryUpdate(
+      input: { brandId: $brandId, id: $id, pointBinds: $pointBinds }
+    ) {
       id
-      priority
-      isActive
+      pointBinds {
+        categoryId
+        pointId
+        orderType
+      }
     }
   }
 `;
@@ -130,10 +155,8 @@ export const CATEGORY_MUTATIONS = {
 
   // Specialized mutations
   TOGGLE_CATEGORY_ACTIVE,
-  UPDATE_CATEGORY_PRIORITY,
+  UPDATE_CATEGORY_POSITION,
   UPDATE_CATEGORY_PARENT,
   UPDATE_CATEGORY_IMAGE,
-
-  // Batch mutations
-  BATCH_UPDATE_CATEGORIES,
+  UPDATE_CATEGORY_POINT_BINDS,
 } as const;

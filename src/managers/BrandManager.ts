@@ -1,6 +1,7 @@
 import { ApolloClient } from "@apollo/client";
 import {
   GET_BRAND_DETAIL,
+  GET_BRAND_BY_SLUG,
   GET_BRANDS_DETAIL,
   GET_ACTIVE_BRANDS,
   GET_BRANDS_BY_ACCOUNT,
@@ -55,6 +56,31 @@ export class BrandManager {
 
       return {
         brand: result.data.brand,
+        loading: false,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        brand: null,
+        loading: false,
+        error: error as Error,
+      };
+    }
+  }
+
+  /**
+   * Get brand by slug with caching
+   */
+  async getBySlug(slug: string) {
+    try {
+      const result = await this.client.query({
+        query: GET_BRAND_BY_SLUG,
+        variables: { input: { slug } },
+        fetchPolicy: "cache-first",
+      });
+
+      return {
+        brand: result.data?.brandBySlug || null,
         loading: false,
         error: null,
       };
@@ -280,9 +306,10 @@ export class BrandManagerFactory {
     client: ApolloClient<any>,
     defaultAccountId?: string
   ): BrandManager {
-    return new BrandManager({
-      client,
-      defaultAccountId,
-    });
+    const config: BrandManagerConfig = { client };
+    if (defaultAccountId !== undefined) {
+      config.defaultAccountId = defaultAccountId;
+    }
+    return new BrandManager(config);
   }
 }
