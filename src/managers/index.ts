@@ -6,11 +6,21 @@
 import { ProductManager, ProductManagerFactory } from "./ProductManager";
 import { CategoryManager, CategoryManagerFactory } from "./CategoryManager";
 import { MenuManager, MenuManagerFactory } from "./MenuManager";
+import { BrandManager, BrandManagerFactory } from "./BrandManager";
+import { CityManager, CityManagerFactory } from "./CityManager";
+import { PointManager, PointManagerFactory } from "./PointManager";
+import { OrderManager, OrderManagerFactory } from "./OrderManager";
+import { UserManager, UserManagerFactory } from "./UserManager";
 
 // Export individual managers
 export { ProductManager, ProductManagerFactory } from "./ProductManager";
 export { CategoryManager, CategoryManagerFactory } from "./CategoryManager";
 export { MenuManager, MenuManagerFactory } from "./MenuManager";
+export { BrandManager, BrandManagerFactory } from "./BrandManager";
+export { CityManager, CityManagerFactory } from "./CityManager";
+export { PointManager, PointManagerFactory } from "./PointManager";
+export { OrderManager, OrderManagerFactory } from "./OrderManager";
+export { UserManager, UserManagerFactory } from "./UserManager";
 
 // Export manager types
 export type {
@@ -27,6 +37,35 @@ export type {
 } from "./CategoryManager";
 
 export type { MenuManagerConfig, MenuFilter, MenuData } from "./MenuManager";
+
+export type {
+  BrandManagerConfig,
+  BrandFilter,
+  CreateElectronicMenuInput,
+} from "./BrandManager";
+
+export type { CityManagerConfig, CityFilter } from "./CityManager";
+
+export type {
+  PointManagerConfig,
+  PointFilter,
+  CreatePointInput,
+  UpdatePointInput,
+} from "./PointManager";
+
+export type {
+  OrderManagerConfig,
+  OrderFilter,
+  CreatePreOrderInput,
+  UpdatePreOrderInput,
+} from "./OrderManager";
+
+export type {
+  UserManagerConfig,
+  EmployeeFilter,
+  AuthenticationCredentials,
+  RestoplaceCredentials,
+} from "./UserManager";
 
 // ====================================================================
 // APOLLO CLIENT CACHE OPTIMIZATION
@@ -406,27 +445,120 @@ export class RestomenuManagers {
   public product: ProductManager;
   public category: CategoryManager;
   public menu: MenuManager;
+  public brand: BrandManager;
+  public city: CityManager;
+  public point: PointManager;
+  public order: OrderManager;
+  public user: UserManager;
   public cache: RestomenuCacheManager;
   public performance: RestomenuPerformanceMonitor;
 
   constructor(
     apolloClient: any,
-    defaults?: {
+    defaults: {
       brandId?: string;
       pointId?: string;
       orderType?: "DELIVERY" | "PICKUP";
-    }
+      accountId?: string;
+      cityId?: string;
+      employeeId?: string;
+    } = {}
   ) {
-    this.product = ProductManagerFactory.createWithClient(
+    // Initialize managers with shared config
+    this.product = ProductManagerFactory.createWithDefaults(
       apolloClient,
-      defaults
+      defaults.brandId,
+      defaults.pointId,
+      defaults.orderType
     );
-    this.category = CategoryManagerFactory.createWithClient(
+
+    this.category = CategoryManagerFactory.createWithDefaults(
       apolloClient,
-      defaults?.brandId
+      defaults.brandId,
+      defaults.pointId,
+      defaults.orderType
     );
-    this.menu = MenuManagerFactory.createWithClient(apolloClient, defaults);
+
+    this.menu = MenuManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.brandId,
+      defaults.pointId,
+      defaults.orderType
+    );
+
+    this.brand = BrandManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.accountId
+    );
+
+    this.city = CityManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.brandId
+    );
+
+    this.point = PointManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.brandId,
+      defaults.cityId
+    );
+
+    this.order = OrderManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.employeeId,
+      defaults.pointId,
+      defaults.brandId
+    );
+
+    this.user = UserManagerFactory.createWithDefaults(
+      apolloClient,
+      defaults.accountId
+    );
+
+    // Initialize utilities
     this.cache = new RestomenuCacheManager(apolloClient);
+    this.performance = new RestomenuPerformanceMonitor();
+  }
+
+  /**
+   * Update default context for all managers
+   */
+  updateDefaults(newDefaults: {
+    brandId?: string;
+    pointId?: string;
+    orderType?: "DELIVERY" | "PICKUP";
+    accountId?: string;
+    cityId?: string;
+    employeeId?: string;
+  }) {
+    // This would require updating the manager configs
+    // For now, suggest creating new managers with new defaults
+    console.warn(
+      "updateDefaults: Consider creating new RestomenuManagers instance with new defaults"
+    );
+  }
+
+  /**
+   * Get all managers for debugging/inspection
+   */
+  getAllManagers() {
+    return {
+      product: this.product,
+      category: this.category,
+      menu: this.menu,
+      brand: this.brand,
+      city: this.city,
+      point: this.point,
+      order: this.order,
+      user: this.user,
+      cache: this.cache,
+      performance: this.performance,
+    };
+  }
+}
+
+// Also export the cache manager and performance monitor directly
+export { RestomenuCacheManager as CacheManager };
+export { RestomenuPerformanceMonitor as PerformanceMonitor };
     this.performance = new RestomenuPerformanceMonitor();
   }
 
