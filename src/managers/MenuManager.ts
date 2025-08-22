@@ -23,13 +23,26 @@ export interface MenuManagerConfig {
 export interface MenuFilter {
   searchTerm?: string;
   categoryId?: string;
+  categoriesId?: string[];
   tagIds?: string[];
+  tagsIdAll?: string[]; // Contains all tags
+  tagsIdNotAll?: string[]; // Does not contain all tags
+  tagsIdAny?: string[]; // Contains at least one tag
+  tagsIdNotAny?: string[]; // Does not contain at least one tag
   priceRange?: {
     min?: number;
     max?: number;
   };
-  sortBy?: "name" | "price" | "popularity" | "category";
+  sortBy?: "name" | "price" | "popularity" | "category" | "categoryPriority";
   sortOrder?: "asc" | "desc";
+  sortByCategoryId?: string;
+  variantsGroupStrategy?: "MAIN" | "PRIORITY_MIN" | "PRIORITY_MAX";
+  variantsGroupByPrice?: {
+    type: "MIN" | "MAX";
+    pointId: string;
+    orderType: string;
+  };
+  isVariantsGroup?: boolean;
 }
 
 export interface MenuData {
@@ -56,7 +69,7 @@ export class MenuManager {
   // ================== MAIN MENU OPERATIONS ==================
 
   /**
-   * Get complete menu data with categories and products
+   * Get complete menu data with categories and products using GraphQL schema capabilities
    */
   async getFullMenuData(
     options: {
@@ -83,6 +96,26 @@ export class MenuManager {
     }
 
     try {
+      // Build enhanced query variables with filters - only call if filters exist
+      let categoryVariables = null;
+      let productVariables = null;
+
+      if (options.filters) {
+        categoryVariables = this.buildCategoryQueryVariables({
+          brandId,
+          pointId,
+          orderType,
+          filters: options.filters,
+        });
+
+        productVariables = this.buildProductQueryVariables({
+          brandId,
+          pointId,
+          orderType,
+          filters: options.filters,
+        });
+      }
+
       const result = await this.client.query({
         query: GET_MENU_DATA,
         variables: { brandId, pointId, orderType },
@@ -117,7 +150,7 @@ export class MenuManager {
         totalCategories: categories.length,
       };
 
-      // Apply filters if provided
+      // Apply client-side filters if needed
       if (options.filters) {
         menuData = this.applyMenuFilters(menuData, options.filters);
       }
@@ -201,7 +234,7 @@ export class MenuManager {
   }
 
   /**
-   * Search menu items with intelligent ranking
+   * Search menu items with intelligent ranking and tag-based filtering
    */
   async searchMenu(options: {
     searchTerm: string;
@@ -209,15 +242,37 @@ export class MenuManager {
     pointId?: string;
     orderType?: string;
     limit?: number;
+    includeInactive?: boolean;
+    categoryFilter?: string;
+    tagFilters?: {
+      tagsIdAll?: string[];
+      tagsIdAny?: string[];
+      tagsIdNotAll?: string[];
+      tagsIdNotAny?: string[];
+    };
+    sortBy?: "relevance" | "name" | "price" | "category";
   }) {
-    // Only pass defined values
-    const menuDataOptions: any = {};
-    if (options.brandId !== undefined)
-      menuDataOptions.brandId = options.brandId;
-    if (options.pointId !== undefined)
-      menuDataOptions.pointId = options.pointId;
-    if (options.orderType !== undefined)
-      menuDataOptions.orderType = options.orderType;
+    // Build search filters
+    const filters: MenuFilter = {
+      searchTerm: options.searchTerm,
+      ...options.tagFilters,
+    };
+
+    if (options.categoryFilter) {
+      filters.categoryId = options.categoryFilter;
+    }
+
+    // Only pass defined values to avoid exactOptionalPropertyTypes issues
+    const menuDataOptions: {
+      brandId?: string;
+      pointId?: string;
+      orderType?: string;
+      filters: MenuFilter;
+    } = { filters };
+
+    if (options.brandId) menuDataOptions.brandId = options.brandId;
+    if (options.pointId) menuDataOptions.pointId = options.pointId;
+    if (options.orderType) menuDataOptions.orderType = options.orderType;
 
     const menuResult = await this.getFullMenuData(menuDataOptions);
 
@@ -233,12 +288,15 @@ export class MenuManager {
     const searchTerm = options.searchTerm.toLowerCase();
     const { products, categories } = menuResult.data;
 
-    // Search in products with ranking
+    // Search in products with enhanced ranking
     const productResults = products
       .map((product: any) => ({
         ...product,
         type: "product",
-        relevanceScore: this.calculateRelevanceScore(product, searchTerm),
+        relevanceScore: this.calculateAdvancedRelevanceScore(
+          product,
+          searchTerm
+        ),
       }))
       .filter((item: any) => item.relevanceScore > 0);
 
@@ -254,10 +312,27 @@ export class MenuManager {
       }))
       .filter((item: any) => item.relevanceScore > 0);
 
-    // Combine and sort by relevance
-    const allResults = [...productResults, ...categoryResults]
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, options.limit || 20);
+    // Combine and sort by relevance or specified criteria
+    let allResults = [...productResults, ...categoryResults];
+
+    if (options.sortBy === "relevance" || !options.sortBy) {
+      allResults = allResults.sort(
+        (a, b) => b.relevanceScore - a.relevanceScore
+      );
+    } else if (options.sortBy === "name") {
+      allResults = allResults.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (options.sortBy === "price") {
+      allResults = allResults.sort((a, b) => {
+        const aPrice = a.pricePoint || 0;
+        const bPrice = b.pricePoint || 0;
+        return aPrice - bPrice;
+      });
+    }
+
+    // Apply limit
+    if (options.limit) {
+      allResults = allResults.slice(0, options.limit);
+    }
 
     return {
       results: allResults,
@@ -265,6 +340,7 @@ export class MenuManager {
       searchTerm: options.searchTerm,
       productCount: productResults.length,
       categoryCount: categoryResults.length,
+      appliedFilters: filters,
       error: null,
     };
   }
@@ -305,7 +381,7 @@ export class MenuManager {
   }
 
   /**
-   * Get menu statistics for analytics
+   * Get menu statistics for analytics with enhanced insights
    */
   async getMenuStatistics(
     options: {
@@ -325,26 +401,157 @@ export class MenuManager {
 
     const { categories, products, organizedCategories } = menuResult.data;
 
+    // Enhanced statistics calculation
+    const activeProducts = products.filter((p: any) => p.isActive);
+    const inactiveProducts = products.filter((p: any) => !p.isActive);
+    const categoriesWithProducts = organizedCategories.filter(
+      (cat) => cat.products.length > 0
+    );
+
+    // Tag analysis
+    const allTags = new Set<string>();
+    const tagUsageCount = new Map<string, number>();
+    products.forEach((product: any) => {
+      product.tags?.forEach((tag: any) => {
+        allTags.add(tag.id);
+        tagUsageCount.set(tag.id, (tagUsageCount.get(tag.id) || 0) + 1);
+      });
+    });
+
+    // Price analysis
+    const priceRange = this.calculatePriceRange(products);
+    const priceStats = this.calculatePriceStatistics(products);
+
+    // Category distribution
+    const categoryDistribution = organizedCategories.map((cat) => ({
+      categoryId: cat.category.id,
+      categoryName: cat.category.name,
+      productCount: cat.products.length,
+      activeProductCount: cat.products.filter((p) => p.isActive).length,
+      averagePrice: this.calculateAveragePrice(cat.products),
+    }));
+
     const stats = {
       totalCategories: categories.length,
       totalProducts: products.length,
-      activeProducts: products.filter((p: any) => p.isActive).length,
-      inactiveProducts: products.filter((p: any) => !p.isActive).length,
-      categoriesWithProducts: organizedCategories.filter(
-        (cat) => cat.products.length > 0
-      ).length,
+      activeProducts: activeProducts.length,
+      inactiveProducts: inactiveProducts.length,
+      categoriesWithProducts: categoriesWithProducts.length,
+      emptyCategoriesCount: categories.length - categoriesWithProducts.length,
       uncategorizedProducts: menuResult.data.uncategorizedProducts.length,
       averageProductsPerCategory:
-        organizedCategories.length > 0
-          ? Math.round((products.length / organizedCategories.length) * 100) /
-            100
+        categoriesWithProducts.length > 0
+          ? Math.round(
+              (activeProducts.length / categoriesWithProducts.length) * 100
+            ) / 100
           : 0,
-      priceRange: this.calculatePriceRange(products),
+      priceRange,
+      priceStatistics: priceStats,
+      tagStatistics: {
+        totalUniqueTags: allTags.size,
+        averageTagsPerProduct:
+          products.length > 0
+            ? Math.round(
+                (Array.from(tagUsageCount.values()).reduce((a, b) => a + b, 0) /
+                  products.length) *
+                  100
+              ) / 100
+            : 0,
+        mostUsedTags: Array.from(tagUsageCount.entries())
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([tagId, count]) => ({ tagId, count })),
+      },
+      categoryDistribution,
+      healthMetrics: this.calculateHealthMetrics(products),
     };
 
     return {
       stats,
       error: null,
+    };
+  }
+
+  /**
+   * Calculate price statistics
+   */
+  private calculatePriceStatistics(products: any[]) {
+    const prices = products
+      .map((p) => p.pricePoint)
+      .filter((price) => typeof price === "number" && price > 0);
+
+    if (prices.length === 0) return null;
+
+    const sortedPrices = prices.sort((a, b) => a - b);
+    const sum = prices.reduce((a, b) => a + b, 0);
+    const average = sum / prices.length;
+    const median =
+      sortedPrices.length % 2 === 0
+        ? (sortedPrices[sortedPrices.length / 2 - 1] +
+            sortedPrices[sortedPrices.length / 2]) /
+          2
+        : sortedPrices[Math.floor(sortedPrices.length / 2)];
+
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+      average: Math.round(average * 100) / 100,
+      median: Math.round(median * 100) / 100,
+      total: prices.length,
+    };
+  }
+
+  /**
+   * Calculate average price for a set of products
+   */
+  private calculateAveragePrice(products: any[]): number {
+    const prices = products
+      .map((p) => p.pricePoint)
+      .filter((price) => typeof price === "number" && price > 0);
+
+    if (prices.length === 0) return 0;
+
+    const average = prices.reduce((a, b) => a + b, 0) / prices.length;
+    return Math.round(average * 100) / 100;
+  }
+
+  /**
+   * Calculate health metrics for products
+   */
+  private calculateHealthMetrics(products: any[]) {
+    const productsWithNutrition = products.filter(
+      (p) => p.calories || p.protein || p.fats || p.carbohydrates
+    );
+
+    if (productsWithNutrition.length === 0) {
+      return {
+        productsWithNutritionInfo: 0,
+        averageCalories: 0,
+        averageProtein: 0,
+        averageFats: 0,
+        averageCarbs: 0,
+      };
+    }
+
+    const totalCalories = productsWithNutrition
+      .map((p) => p.calories || 0)
+      .reduce((a, b) => a + b, 0);
+    const totalProtein = productsWithNutrition
+      .map((p) => p.protein || 0)
+      .reduce((a, b) => a + b, 0);
+    const totalFats = productsWithNutrition
+      .map((p) => p.fats || 0)
+      .reduce((a, b) => a + b, 0);
+    const totalCarbs = productsWithNutrition
+      .map((p) => p.carbohydrates || 0)
+      .reduce((a, b) => a + b, 0);
+
+    return {
+      productsWithNutritionInfo: productsWithNutrition.length,
+      averageCalories: Math.round(totalCalories / productsWithNutrition.length),
+      averageProtein: Math.round(totalProtein / productsWithNutrition.length),
+      averageFats: Math.round(totalFats / productsWithNutrition.length),
+      averageCarbs: Math.round(totalCarbs / productsWithNutrition.length),
     };
   }
 
@@ -423,7 +630,260 @@ export class MenuManager {
   // ================== UTILITY METHODS ==================
 
   /**
-   * Apply filters to menu data
+   * Build category query variables based on filters
+   */
+  private buildCategoryQueryVariables({
+    brandId,
+    pointId,
+    orderType,
+    filters,
+  }: {
+    brandId: string;
+    pointId: string;
+    orderType: string;
+    filters?: MenuFilter;
+  }) {
+    const input: any = {
+      brandId,
+      filter: {
+        isActive: true,
+        pointBinds: { pointId, orderType },
+        productExists: {
+          isActive: true,
+          pointBinds: { pointId, orderType },
+        },
+      },
+    };
+
+    if (filters) {
+      // Category-specific filters
+      if (filters.categoryId) {
+        input.filter.ids = [filters.categoryId];
+      }
+      if (filters.categoriesId) {
+        input.filter.ids = filters.categoriesId;
+      }
+
+      // Product existence filters for categories
+      if (filters.tagIds || filters.tagsIdAll || filters.tagsIdAny) {
+        const productExists = input.filter.productExists;
+        if (filters.tagIds) productExists.tagsIdAny = filters.tagIds;
+        if (filters.tagsIdAll) productExists.tagsIdAll = filters.tagsIdAll;
+        if (filters.tagsIdAny) productExists.tagsIdAny = filters.tagsIdAny;
+        if (filters.tagsIdNotAll)
+          productExists.tagsIdNotAll = filters.tagsIdNotAll;
+        if (filters.tagsIdNotAny)
+          productExists.tagsIdNotAny = filters.tagsIdNotAny;
+      }
+    }
+
+    return input;
+  }
+
+  /**
+   * Build product query variables based on filters
+   */
+  private buildProductQueryVariables({
+    brandId,
+    pointId,
+    orderType,
+    filters,
+  }: {
+    brandId: string;
+    pointId: string;
+    orderType: string;
+    filters?: MenuFilter;
+  }) {
+    const input: any = {
+      brandId,
+      filter: {
+        isActive: true,
+        pointBinds: { pointId, orderType },
+      },
+    };
+
+    if (filters) {
+      // Category filters
+      if (filters.categoryId) {
+        input.filter.categoriesId = [filters.categoryId];
+      }
+      if (filters.categoriesId) {
+        input.filter.categoriesId = filters.categoriesId;
+      }
+
+      // Tag filters with GraphQL schema support
+      if (filters.tagIds) input.filter.tagsIdAny = filters.tagIds;
+      if (filters.tagsIdAll) input.filter.tagsIdAll = filters.tagsIdAll;
+      if (filters.tagsIdAny) input.filter.tagsIdAny = filters.tagsIdAny;
+      if (filters.tagsIdNotAll)
+        input.filter.tagsIdNotAll = filters.tagsIdNotAll;
+      if (filters.tagsIdNotAny)
+        input.filter.tagsIdNotAny = filters.tagsIdNotAny;
+
+      // Variants grouping
+      if (filters.variantsGroupStrategy) {
+        input.variantsGroupSimpleStrategy = filters.variantsGroupStrategy;
+      }
+      if (filters.variantsGroupByPrice) {
+        input.variantsGroupByPrice = {
+          type: filters.variantsGroupByPrice.type,
+          pointBind: {
+            pointId: filters.variantsGroupByPrice.pointId,
+            orderType: filters.variantsGroupByPrice.orderType,
+          },
+        };
+      }
+      if (filters.isVariantsGroup !== undefined) {
+        input.isVariantsGroup = filters.isVariantsGroup;
+      }
+
+      // Sorting
+      if (filters.sortBy === "categoryPriority" && filters.sortByCategoryId) {
+        input.sortByCategoryPriority = {
+          sort: filters.sortOrder?.toUpperCase() || "ASC",
+          categoryId: filters.sortByCategoryId,
+        };
+      }
+      if (filters.sortBy === "price") {
+        input.sortByPrice = {
+          sort: filters.sortOrder?.toUpperCase() || "ASC",
+          pointBind: { pointId, orderType },
+        };
+      }
+      if (filters.sortByCategoryId) {
+        input.sortByCategoryId = filters.sortByCategoryId;
+      }
+    }
+
+    return input;
+  }
+
+  /**
+   * Get products by category with enhanced filtering
+   */
+  async getProductsByCategory(
+    categoryId: string,
+    options: {
+      brandId?: string;
+      pointId?: string;
+      orderType?: string;
+      filters?: Omit<MenuFilter, "categoryId">;
+      limit?: number;
+    } = {}
+  ) {
+    const brandId = options.brandId || this.config.defaultBrandId;
+    const pointId = options.pointId || this.config.defaultPointId;
+    const orderType = options.orderType || this.config.defaultOrderType;
+
+    if (!brandId || !pointId || !orderType) {
+      return {
+        products: [],
+        error: new Error("brandId, pointId, and orderType are required"),
+      };
+    }
+
+    try {
+      const { GET_PRODUCTS_BY_CATEGORY } = await import(
+        "../graphql/queries/product"
+      );
+
+      const variables = this.buildProductQueryVariables({
+        brandId,
+        pointId,
+        orderType,
+        filters: { ...options.filters, categoryId },
+      });
+
+      const result = await this.client.query({
+        query: GET_PRODUCTS_BY_CATEGORY,
+        variables,
+        fetchPolicy: "cache-first",
+      });
+
+      let products = result.data?.products || [];
+
+      // Apply limit if specified
+      if (options.limit) {
+        products = products.slice(0, options.limit);
+      }
+
+      return {
+        products,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        products: [],
+        error: error as Error,
+      };
+    }
+  }
+
+  /**
+   * Get products with advanced tagging filters
+   */
+  async getProductsByTags(
+    options: {
+      brandId?: string;
+      pointId?: string;
+      orderType?: string;
+      tagsIdAll?: string[];
+      tagsIdAny?: string[];
+      tagsIdNotAll?: string[];
+      tagsIdNotAny?: string[];
+      categoryId?: string;
+      sortBy?: "name" | "price" | "categoryPriority";
+      sortOrder?: "asc" | "desc";
+      limit?: number;
+    } = {}
+  ) {
+    const filters: MenuFilter = {};
+
+    // Only add properties that are defined
+    if (options.tagsIdAll) filters.tagsIdAll = options.tagsIdAll;
+    if (options.tagsIdAny) filters.tagsIdAny = options.tagsIdAny;
+    if (options.tagsIdNotAll) filters.tagsIdNotAll = options.tagsIdNotAll;
+    if (options.tagsIdNotAny) filters.tagsIdNotAny = options.tagsIdNotAny;
+    if (options.categoryId) filters.categoryId = options.categoryId;
+    if (options.sortBy) filters.sortBy = options.sortBy;
+    if (options.sortOrder) filters.sortOrder = options.sortOrder;
+
+    // Only pass defined values to avoid exactOptionalPropertyTypes issues
+    const menuDataOptions: {
+      brandId?: string;
+      pointId?: string;
+      orderType?: string;
+      filters: MenuFilter;
+    } = { filters };
+
+    if (options.brandId) menuDataOptions.brandId = options.brandId;
+    if (options.pointId) menuDataOptions.pointId = options.pointId;
+    if (options.orderType) menuDataOptions.orderType = options.orderType;
+
+    const menuResult = await this.getFullMenuData(menuDataOptions);
+
+    if (menuResult.error || !menuResult.data) {
+      return {
+        products: [],
+        error: menuResult.error,
+      };
+    }
+
+    let products = menuResult.data.products;
+
+    // Apply limit if specified
+    if (options.limit) {
+      products = products.slice(0, options.limit);
+    }
+
+    return {
+      products,
+      error: null,
+    };
+  }
+
+  /**
+   * Apply filters to menu data with enhanced GraphQL schema support
    */
   private applyMenuFilters(menuData: MenuData, filters: MenuFilter): MenuData {
     let { organizedCategories, uncategorizedProducts } = menuData;
@@ -435,21 +895,14 @@ export class MenuManager {
       organizedCategories = organizedCategories
         .map((cat) => ({
           ...cat,
-          products: cat.products.filter(
-            (product: any) =>
-              product.name.toLowerCase().includes(searchTerm) ||
-              product.description?.toLowerCase().includes(searchTerm) ||
-              product.tags?.some((tag: any) =>
-                tag.name.toLowerCase().includes(searchTerm)
-              )
+          products: cat.products.filter((product: any) =>
+            this.matchesSearchTerm(product, searchTerm)
           ),
         }))
         .filter((cat) => cat.products.length > 0);
 
-      uncategorizedProducts = uncategorizedProducts.filter(
-        (product: any) =>
-          product.name.toLowerCase().includes(searchTerm) ||
-          product.description?.toLowerCase().includes(searchTerm)
+      uncategorizedProducts = uncategorizedProducts.filter((product: any) =>
+        this.matchesSearchTerm(product, searchTerm)
       );
     }
 
@@ -459,6 +912,78 @@ export class MenuManager {
         (cat) => cat.category.id === filters.categoryId
       );
       uncategorizedProducts = []; // Clear if specific category selected
+    }
+
+    // Apply multiple categories filter
+    if (filters.categoriesId && filters.categoriesId.length > 0) {
+      organizedCategories = organizedCategories.filter((cat) =>
+        filters.categoriesId!.includes(cat.category.id)
+      );
+    }
+
+    // Apply tag filters with GraphQL schema support
+    if (
+      filters.tagIds ||
+      filters.tagsIdAll ||
+      filters.tagsIdAny ||
+      filters.tagsIdNotAll ||
+      filters.tagsIdNotAny
+    ) {
+      const filterByTags = (product: any) => {
+        const productTagIds = product.tags?.map((tag: any) => tag.id) || [];
+
+        // Legacy tagIds support (treated as tagsIdAny)
+        if (filters.tagIds && filters.tagIds.length > 0) {
+          if (!filters.tagIds.some((tagId) => productTagIds.includes(tagId))) {
+            return false;
+          }
+        }
+
+        // Contains all tags
+        if (filters.tagsIdAll && filters.tagsIdAll.length > 0) {
+          if (
+            !filters.tagsIdAll.every((tagId) => productTagIds.includes(tagId))
+          ) {
+            return false;
+          }
+        }
+
+        // Contains at least one tag
+        if (filters.tagsIdAny && filters.tagsIdAny.length > 0) {
+          if (
+            !filters.tagsIdAny.some((tagId) => productTagIds.includes(tagId))
+          ) {
+            return false;
+          }
+        }
+
+        // Does not contain all tags
+        if (filters.tagsIdNotAll && filters.tagsIdNotAll.length > 0) {
+          if (
+            filters.tagsIdNotAll.every((tagId) => productTagIds.includes(tagId))
+          ) {
+            return false;
+          }
+        }
+
+        // Does not contain any of these tags
+        if (filters.tagsIdNotAny && filters.tagsIdNotAny.length > 0) {
+          if (
+            filters.tagsIdNotAny.some((tagId) => productTagIds.includes(tagId))
+          ) {
+            return false;
+          }
+        }
+
+        return true;
+      };
+
+      organizedCategories = organizedCategories.map((cat) => ({
+        ...cat,
+        products: cat.products.filter(filterByTags),
+      }));
+
+      uncategorizedProducts = uncategorizedProducts.filter(filterByTags);
     }
 
     // Apply price range filter
@@ -481,6 +1006,39 @@ export class MenuManager {
       uncategorizedProducts = uncategorizedProducts.filter(filterByPrice);
     }
 
+    // Apply sorting (client-side for complex cases)
+    if (filters.sortBy && filters.sortBy !== "categoryPriority") {
+      const sortProducts = (products: any[]) => {
+        return products.sort((a, b) => {
+          let comparison = 0;
+
+          switch (filters.sortBy) {
+            case "name":
+              comparison = a.name.localeCompare(b.name);
+              break;
+            case "price":
+              const aPrice = a.pricePoint || 0;
+              const bPrice = b.pricePoint || 0;
+              comparison = aPrice - bPrice;
+              break;
+            case "popularity":
+              // You could implement popularity scoring here
+              comparison = (b.priority || 0) - (a.priority || 0);
+              break;
+          }
+
+          return filters.sortOrder === "desc" ? -comparison : comparison;
+        });
+      };
+
+      organizedCategories = organizedCategories.map((cat) => ({
+        ...cat,
+        products: sortProducts([...cat.products]),
+      }));
+
+      uncategorizedProducts = sortProducts([...uncategorizedProducts]);
+    }
+
     // Calculate new totals
     const allProducts = [
       ...organizedCategories.flatMap((cat) => cat.products),
@@ -499,13 +1057,34 @@ export class MenuManager {
   }
 
   /**
-   * Calculate relevance score for product search
+   * Check if product matches search term
    */
-  private calculateRelevanceScore(product: any, searchTerm: string): number {
+  private matchesSearchTerm(product: any, searchTerm: string): boolean {
+    const name = product.name?.toLowerCase() || "";
+    const description = product.description?.toLowerCase() || "";
+    const tags = product.tags?.map((tag: any) => tag.name.toLowerCase()) || [];
+    const slug = product.slug?.toLowerCase() || "";
+
+    return (
+      name.includes(searchTerm) ||
+      description.includes(searchTerm) ||
+      slug.includes(searchTerm) ||
+      tags.some((tag: string) => tag.includes(searchTerm))
+    );
+  }
+
+  /**
+   * Calculate enhanced relevance score for product search including tags
+   */
+  private calculateAdvancedRelevanceScore(
+    product: any,
+    searchTerm: string
+  ): number {
     const name = product.name?.toLowerCase() || "";
     const description = product.description?.toLowerCase() || "";
     const tags =
       product.tags?.map((tag: any) => tag.name.toLowerCase()).join(" ") || "";
+    const slug = product.slug?.toLowerCase() || "";
 
     let score = 0;
 
@@ -516,13 +1095,52 @@ export class MenuManager {
     // Name contains search term
     else if (name.includes(searchTerm)) score += 60;
 
+    // Slug matching (important for SEO)
+    if (slug === searchTerm) score += 90;
+    else if (slug.includes(searchTerm)) score += 50;
+
     // Description contains search term
     if (description.includes(searchTerm)) score += 30;
 
-    // Tags contain search term
-    if (tags.includes(searchTerm)) score += 40;
+    // Tag matching with higher priority
+    const tagNames =
+      product.tags?.map((tag: any) => tag.name.toLowerCase()) || [];
+    const exactTagMatch = tagNames.some(
+      (tagName: string) => tagName === searchTerm
+    );
+    const partialTagMatch = tagNames.some((tagName: string) =>
+      tagName.includes(searchTerm)
+    );
+
+    if (exactTagMatch) score += 70;
+    else if (partialTagMatch) score += 40;
+    else if (tags.includes(searchTerm)) score += 35;
+
+    // Boost score for active products
+    if (product.isActive) score += 10;
+
+    // Nutritional information matching (for health-conscious searches)
+    if (searchTerm.includes("калори") || searchTerm.includes("calories")) {
+      if (product.calories) score += 20;
+    }
+    if (searchTerm.includes("белок") || searchTerm.includes("protein")) {
+      if (product.protein) score += 20;
+    }
+    if (searchTerm.includes("жир") || searchTerm.includes("fat")) {
+      if (product.fats) score += 20;
+    }
+    if (searchTerm.includes("углевод") || searchTerm.includes("carb")) {
+      if (product.carbohydrates) score += 20;
+    }
 
     return score;
+  }
+
+  /**
+   * Calculate relevance score for product search (legacy method)
+   */
+  private calculateRelevanceScore(product: any, searchTerm: string): number {
+    return this.calculateAdvancedRelevanceScore(product, searchTerm);
   }
 
   /**
