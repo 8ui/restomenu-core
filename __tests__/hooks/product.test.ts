@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { MockedProvider } from "@apollo/client/testing";
 import React from "react";
 import {
@@ -13,6 +13,13 @@ import {
   useDeleteProduct,
   useToggleProductActive,
   useProductFormData,
+  useProductFormSubmit,
+  useProductVariantWorkflow,
+  useVariantPropertyManagement,
+  useProductPricing,
+  useProductCategories,
+  useProductTagsWorkflow,
+  useProductForm,
 } from "../../src/hooks/product";
 import {
   GET_PRODUCT_DETAIL,
@@ -20,13 +27,18 @@ import {
   GET_AVAILABLE_PRODUCTS,
   GET_PRODUCTS_BY_CATEGORY,
   GET_PRODUCT_TAGS,
+  GET_PRODUCT_VARIANT_PROPERTIES,
 } from "../../src/graphql/queries/product";
 import {
   CREATE_PRODUCT,
   UPDATE_PRODUCT,
   DELETE_PRODUCT,
   TOGGLE_PRODUCT_ACTIVE,
+  CREATE_PRODUCT_VARIANT_PROPERTY,
+  UPDATE_PRODUCT_VARIANT_PROPERTY,
+  DELETE_PRODUCT_VARIANT_PROPERTY,
 } from "../../src/graphql/mutations/product";
+import { GET_BRAND_CATEGORIES } from "../../src/graphql/queries/category";
 
 // Mock data
 const mockProduct = {
@@ -44,12 +56,58 @@ const mockProduct = {
     },
   ],
   pricePoint: 500,
+  priceSettings: {
+    price: 500,
+    priceOrderTypes: [
+      {
+        orderType: "PRE_ORDER",
+        priceCommon: 500,
+        priceCities: [],
+        pricePoints: [],
+      },
+    ],
+  },
+  variants: [],
 };
 
-const mockProducts = [
-  mockProduct,
-  { ...mockProduct, id: "2", name: "Test Product 2" },
-];
+const mockProducts = {
+  products: [mockProduct, { ...mockProduct, id: "2", name: "Test Product 2" }],
+};
+
+const mockCategories = {
+  categories: [
+    { id: "cat-1", name: "Category 1", isActive: true },
+    { id: "cat-2", name: "Category 2", isActive: true },
+  ],
+};
+
+const mockTags = {
+  productTags: [
+    { id: "tag-1", name: "Popular" },
+    { id: "tag-2", name: "Spicy" },
+  ],
+};
+
+const mockVariantProperties = {
+  productVariantProperties: [
+    {
+      id: "prop-1",
+      name: "Size",
+      values: [
+        { id: "val-1", name: "Small" },
+        { id: "val-2", name: "Large" },
+      ],
+    },
+    {
+      id: "prop-2",
+      name: "Color",
+      values: [
+        { id: "val-3", name: "Red" },
+        { id: "val-4", name: "Blue" },
+      ],
+    },
+  ],
+};
 
 // Test wrapper component
 const createWrapper = (mocks: any[]) => {
@@ -162,11 +220,7 @@ describe("Product Hooks", () => {
               input: { brandId: "brand-1" },
             },
           },
-          result: {
-            data: {
-              products: mockProducts,
-            },
-          },
+          result: mockProducts,
         },
       ];
 
@@ -181,7 +235,7 @@ describe("Product Hooks", () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.data.products).toEqual(mockProducts);
+      expect(result.current.data.products).toEqual(mockProducts.products);
       expect(result.current.data.products).toHaveLength(2);
     });
   });
@@ -198,11 +252,7 @@ describe("Product Hooks", () => {
               orderType: "DELIVERY",
             },
           },
-          result: {
-            data: {
-              products: mockProducts,
-            },
-          },
+          result: mockProducts,
         },
       ];
 
@@ -222,7 +272,7 @@ describe("Product Hooks", () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.data.products).toEqual(mockProducts);
+      expect(result.current.data.products).toEqual(mockProducts.products);
     });
   });
 
@@ -318,11 +368,7 @@ describe("Product Hooks", () => {
               orderType: "DELIVERY",
             },
           },
-          result: {
-            data: {
-              products: mockProducts,
-            },
-          },
+          result: mockProducts,
         },
       ];
 
@@ -343,17 +389,12 @@ describe("Product Hooks", () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.data.products).toEqual(mockProducts);
+      expect(result.current.data.products).toEqual(mockProducts.products);
     });
   });
 
   describe("useProductTags", () => {
     it("should fetch product tags successfully", async () => {
-      const mockTags = [
-        { id: "tag-1", name: "Popular" },
-        { id: "tag-2", name: "Spicy" },
-      ];
-
       const mocks = [
         {
           request: {
@@ -362,11 +403,7 @@ describe("Product Hooks", () => {
               brandId: "brand-1",
             },
           },
-          result: {
-            data: {
-              productTags: mockTags,
-            },
-          },
+          result: mockTags,
         },
       ];
 
@@ -381,7 +418,7 @@ describe("Product Hooks", () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.data.productTags).toEqual(mockTags);
+      expect(result.current.data.productTags).toEqual(mockTags.productTags);
     });
   });
 
@@ -522,11 +559,6 @@ describe("Product Hooks", () => {
 
   describe("useProductFormData", () => {
     it("should return combined product and tags data", async () => {
-      const mockTags = [
-        { id: "tag-1", name: "Popular" },
-        { id: "tag-2", name: "Spicy" },
-      ];
-
       const mocks = [
         {
           request: {
@@ -543,16 +575,30 @@ describe("Product Hooks", () => {
         },
         {
           request: {
+            query: GET_BRAND_CATEGORIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockCategories,
+        },
+        {
+          request: {
             query: GET_PRODUCT_TAGS,
             variables: {
               brandId: "brand-1",
             },
           },
-          result: {
-            data: {
-              productTags: mockTags,
+          result: mockTags,
+        },
+        {
+          request: {
+            query: GET_PRODUCT_VARIANT_PROPERTIES,
+            variables: {
+              brandId: "brand-1",
             },
           },
+          result: mockVariantProperties,
         },
       ];
 
@@ -572,8 +618,335 @@ describe("Product Hooks", () => {
       });
 
       expect(result.current.product).toEqual(mockProduct);
-      expect(result.current.tags).toEqual(mockTags);
+      expect(result.current.tags).toEqual(mockTags.productTags);
+      expect(result.current.categories).toEqual(mockCategories.categories);
+      expect(result.current.variantProperties).toEqual(
+        mockVariantProperties.productVariantProperties
+      );
       expect(typeof result.current.refetch).toBe("function");
+    });
+  });
+
+  describe("useProductFormSubmit", () => {
+    it("should submit product data successfully", async () => {
+      const productInput = {
+        brandId: "brand-1",
+        name: "Test Product",
+        slug: "test-product",
+      };
+
+      const mocks = [
+        {
+          request: {
+            query: CREATE_PRODUCT,
+            variables: {
+              input: productInput,
+            },
+          },
+          result: {
+            data: {
+              productCreate: {
+                ...mockProduct,
+                ...productInput,
+              },
+            },
+          },
+        },
+      ];
+
+      const { result } = renderHook(() => useProductFormSubmit(), {
+        wrapper: createWrapper(mocks),
+      });
+
+      const submitResult = await result.current.submit(productInput);
+
+      expect(submitResult).toEqual({
+        ...mockProduct,
+        ...productInput,
+      });
+    });
+  });
+
+  describe("useProductVariantWorkflow", () => {
+    it("should generate variants from properties", async () => {
+      const baseProduct = {
+        ...mockProduct,
+        name: "Test Product",
+      };
+
+      const mocks = [
+        {
+          request: {
+            query: GET_PRODUCT_VARIANT_PROPERTIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockVariantProperties,
+        },
+      ];
+
+      const { result } = renderHook(
+        () =>
+          useProductVariantWorkflow({
+            brandId: "brand-1",
+            baseProduct: baseProduct,
+          }),
+        {
+          wrapper: createWrapper(mocks),
+        }
+      );
+
+      // Wait for the hook to load
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const propertyIds = ["prop-1", "prop-2"];
+      const variants = result.current.generateVariants(propertyIds);
+
+      // Should generate 4 variants (2 sizes * 2 colors)
+      expect(variants).toHaveLength(4);
+      // Check that at least one variant has the expected name format
+      const hasCorrectNameFormat = variants.some(
+        (variant) => variant.name && variant.name.includes("Test Product -")
+      );
+      expect(hasCorrectNameFormat).toBe(true);
+    });
+  });
+
+  describe("useVariantPropertyManagement", () => {
+    it("should manage variant properties", async () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PRODUCT_VARIANT_PROPERTIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockVariantProperties,
+        },
+      ];
+
+      const { result } = renderHook(
+        () => useVariantPropertyManagement("brand-1"),
+        {
+          wrapper: createWrapper(mocks),
+        }
+      );
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.properties).toEqual(
+        mockVariantProperties.productVariantProperties
+      );
+      expect(typeof result.current.validatePropertyName).toBe("function");
+    });
+  });
+
+  describe("useProductPricing", () => {
+    it("should calculate effective price", () => {
+      const { result } = renderHook(() => useProductPricing(), {
+        wrapper: createWrapper([]),
+      });
+
+      const context = {
+        basePrice: 500,
+        orderType: "PRE_ORDER",
+        priceSettings: {
+          priceOrderTypes: [
+            {
+              orderType: "PRE_ORDER",
+              priceCommon: 450,
+              priceCities: [],
+              pricePoints: [],
+            },
+          ],
+        },
+      };
+
+      const effectivePrice = result.current.calculateEffectivePrice(context);
+      expect(effectivePrice).toBe(450);
+    });
+
+    it("should validate pricing", () => {
+      const { result } = renderHook(() => useProductPricing(), {
+        wrapper: createWrapper([]),
+      });
+
+      const pricing = {
+        price: -100, // Invalid negative price
+        priceOrderTypes: [
+          {
+            orderType: "PRE_ORDER",
+            priceCommon: 500,
+            priceCities: [],
+            pricePoints: [],
+          },
+        ],
+      };
+
+      const validation = result.current.validatePricing(pricing);
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors).toContain(
+        "Базовая цена не может быть отрицательной"
+      );
+    });
+  });
+
+  describe("useProductCategories", () => {
+    it("should manage category bindings", async () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_BRAND_CATEGORIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockCategories,
+        },
+      ];
+
+      const { result } = renderHook(() => useProductCategories("brand-1"), {
+        wrapper: createWrapper(mocks),
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const categoryIds = ["cat-1", "cat-2"];
+      const bindings = result.current.bindCategories(categoryIds);
+
+      expect(bindings).toHaveLength(2);
+      expect(bindings[0]).toEqual({ categoryId: "cat-1", priority: 1 });
+      expect(bindings[1]).toEqual({ categoryId: "cat-2", priority: 2 });
+    });
+  });
+
+  describe("useProductTagsWorkflow", () => {
+    it("should bind tags by name", async () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PRODUCT_TAGS,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockTags,
+        },
+      ];
+
+      const { result } = renderHook(() => useProductTagsWorkflow("brand-1"), {
+        wrapper: createWrapper(mocks),
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const tagNames = ["Popular", "New"];
+      const bindings = await result.current.bindTagsByName(tagNames);
+
+      expect(bindings).toHaveLength(2);
+      expect(bindings[0]).toEqual({ name: "Popular", priority: 1 });
+      expect(bindings[1]).toEqual({ name: "New", priority: 2 });
+    });
+  });
+
+  describe("useProductForm", () => {
+    it("should combine all workflow hooks", async () => {
+      const mocks = [
+        {
+          request: {
+            query: GET_PRODUCT_DETAIL,
+            variables: {
+              input: { id: "1", brandId: "brand-1" },
+            },
+          },
+          result: {
+            data: {
+              product: mockProduct,
+            },
+          },
+        },
+        {
+          request: {
+            query: GET_BRAND_CATEGORIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockCategories,
+        },
+        {
+          request: {
+            query: GET_PRODUCT_TAGS,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockTags,
+        },
+        {
+          request: {
+            query: GET_PRODUCT_VARIANT_PROPERTIES,
+            variables: {
+              brandId: "brand-1",
+            },
+          },
+          result: mockVariantProperties,
+        },
+        {
+          request: {
+            query: CREATE_PRODUCT,
+            variables: {
+              input: {
+                brandId: "brand-1",
+                name: "Test Product",
+              },
+            },
+          },
+          result: {
+            data: {
+              productCreate: mockProduct,
+            },
+          },
+        },
+      ];
+
+      const { result } = renderHook(
+        () =>
+          useProductForm({
+            brandId: "brand-1",
+            productId: "1",
+          }),
+        {
+          wrapper: createWrapper(mocks),
+        }
+      );
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      // Check that all data is loaded
+      expect(result.current.product).toEqual(mockProduct);
+      expect(result.current.categories).toEqual(mockCategories.categories);
+      expect(result.current.tags).toEqual(mockTags.productTags);
+      expect(result.current.variantProperties).toEqual(
+        mockVariantProperties.productVariantProperties
+      );
+
+      // Check that all workflow functions are available
+      expect(typeof result.current.submitProduct).toBe("function");
+      expect(typeof result.current.validateProduct).toBe("function");
+      expect(typeof result.current.getInitialValues).toBe("function");
     });
   });
 });

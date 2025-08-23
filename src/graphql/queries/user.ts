@@ -47,6 +47,26 @@ export const GET_USER_DETAIL = gql`
   ${USER_DETAIL_FRAGMENT}
 `;
 
+// Get single employee by ID with detailed information
+export const GET_EMPLOYEE_DETAIL = gql`
+  query GetEmployeeDetail($input: EmployeeInput!) {
+    employee(input: $input) {
+      id
+      userId
+      accountId
+      role
+      name
+      brandsId
+      pointsId
+      isActive
+      user {
+        ...UserDetail
+      }
+    }
+  }
+  ${USER_DETAIL_FRAGMENT}
+`;
+
 // ================== LIST QUERIES ==================
 
 // Get users with minimal fields (for lists)
@@ -69,6 +89,26 @@ export const GET_USERS_DETAIL = gql`
   ${USER_DETAIL_FRAGMENT}
 `;
 
+// Get employees with detailed information
+export const GET_EMPLOYEES = gql`
+  query GetEmployees($input: EmployeesInput!) {
+    employees(input: $input) {
+      id
+      userId
+      accountId
+      role
+      name
+      brandsId
+      pointsId
+      isActive
+      user {
+        ...UserDetail
+      }
+    }
+  }
+  ${USER_DETAIL_FRAGMENT}
+`;
+
 // ================== EXPORTED QUERY COLLECTIONS ==================
 export const USER_QUERIES = {
   // Current user queries
@@ -78,12 +118,15 @@ export const USER_QUERIES = {
   // Single user queries
   GET_USER_BASE,
   GET_USER_DETAIL,
+  GET_EMPLOYEE_DETAIL,
 
   // Multiple users queries
   GET_USERS_BASE,
   GET_USERS_DETAIL,
+  GET_EMPLOYEES,
 } as const;
 
 // Legacy exports for backward compatibility
 export const GET_USER = GET_USER_DETAIL;
 export const GET_ME = GET_ME_DETAIL;
+export const GET_USER_PROFILE = GET_ME_DETAIL;

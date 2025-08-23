@@ -27,6 +27,7 @@ export {
   useAvailableProducts,
   useMenuProducts,
   useProductFormData,
+  useProductForm,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
