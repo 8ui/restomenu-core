@@ -32,7 +32,6 @@ export type {
 export type {
   CategoryManagerConfig,
   CategoryFilter,
-  CreateCategoryInput,
   CategoryHierarchy,
 } from "./CategoryManager";
 
@@ -465,22 +464,31 @@ export class RestomenuManagers {
     } = {}
   ) {
     // Initialize managers with shared config
-    this.product = ProductManagerFactory.createWithClient(apolloClient, {
-      brandId: defaults.brandId,
-      pointId: defaults.pointId,
-      orderType: defaults.orderType,
-    });
+    const productConfig: any = {};
+    if (defaults.brandId !== undefined)
+      productConfig.brandId = defaults.brandId;
+    if (defaults.pointId !== undefined)
+      productConfig.pointId = defaults.pointId;
+    if (defaults.orderType !== undefined)
+      productConfig.orderType = defaults.orderType;
+
+    this.product = ProductManagerFactory.createWithClient(
+      apolloClient,
+      productConfig
+    );
 
     this.category = CategoryManagerFactory.createWithClient(
       apolloClient,
       defaults.brandId
     );
 
-    this.menu = MenuManagerFactory.createWithClient(apolloClient, {
-      brandId: defaults.brandId,
-      pointId: defaults.pointId,
-      orderType: defaults.orderType,
-    });
+    const menuConfig: any = {};
+    if (defaults.brandId !== undefined) menuConfig.brandId = defaults.brandId;
+    if (defaults.pointId !== undefined) menuConfig.pointId = defaults.pointId;
+    if (defaults.orderType !== undefined)
+      menuConfig.orderType = defaults.orderType;
+
+    this.menu = MenuManagerFactory.createWithClient(apolloClient, menuConfig);
 
     this.brand = BrandManagerFactory.createWithDefaults(
       apolloClient,

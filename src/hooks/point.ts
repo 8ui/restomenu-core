@@ -145,16 +145,16 @@ export const usePointSelection = ({
     loading,
     error,
   } = usePointsForBrand({
-    input: {
-      brandId: brandId || "",
-      filter: cityId ? { cityId } : {},
-    },
+    brandId: brandId || "",
     skip: !brandId,
   });
 
   const { data: selectedPointData } = usePoint({
-    input: { id: preselectedPointId || "" },
-    skip: !preselectedPointId,
+    input: {
+      brandId: brandId || "",
+      id: preselectedPointId || "",
+    },
+    skip: !preselectedPointId || !brandId,
   });
 
   return {

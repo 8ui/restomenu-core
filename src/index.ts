@@ -142,7 +142,6 @@ export type {
   CreateProductInput,
   CategoryManagerConfig,
   CategoryFilter,
-  CreateCategoryInput,
   CategoryHierarchy,
   MenuManagerConfig,
   MenuFilter,

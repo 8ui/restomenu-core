@@ -57,7 +57,13 @@ export interface MenuFilterInput {
   tagsIdNotAll?: string[];
   tagsIdNotAny?: string[];
   priceRange?: { min?: number; max?: number };
-  sortBy?: "name" | "price" | "popularity" | "category" | "categoryPriority";
+  sortBy?:
+    | "name"
+    | "price"
+    | "popularity"
+    | "category"
+    | "categoryPriority"
+    | "relevance";
   sortOrder?: "asc" | "desc";
 }
 
@@ -93,7 +99,7 @@ export const useMenuData = ({
     errorPolicy: "all",
   };
 
-  if (pollInterval) {
+  if (pollInterval && typeof pollInterval === "number") {
     queryOptions.pollInterval = pollInterval;
     queryOptions.notifyOnNetworkStatusChange = true;
   }
@@ -195,11 +201,7 @@ export const useCreateMenuItem = () => {
   return useMutation(CREATE_PRODUCT, {
     update: (cache, { data }) => {
       client.refetchQueries({
-        include: [
-          "GetMenuData",
-          "GetAvailableProducts",
-          "GetProductsForMenu",
-        ],
+        include: ["GetMenuData", "GetAvailableProducts", "GetProductsForMenu"],
       });
     },
     errorPolicy: "all",
@@ -245,20 +247,21 @@ export const useDeleteMenuItem = () => {
     update: (cache, { data }, { variables }) => {
       if (data && variables) {
         // Remove from cache
-        cache.evict({
-          id: cache.identify({
+        const productId = (variables as any).input?.id;
+        if (productId) {
+          const identifiedId = cache.identify({
             __typename: "Product",
-            id: (variables as any).input.id,
-          }),
-        });
-        cache.gc();
+            id: productId,
+          });
+
+          if (identifiedId) {
+            cache.evict({ id: identifiedId });
+            cache.gc();
+          }
+        }
       }
       client.refetchQueries({
-        include: [
-          "GetMenuData",
-          "GetAvailableProducts",
-          "GetProductsForMenu",
-        ],
+        include: ["GetMenuData", "GetAvailableProducts", "GetProductsForMenu"],
       });
     },
     errorPolicy: "all",
@@ -387,7 +390,14 @@ export const useMenuManagement = ({
       updateCategory: (input: CategoryUpdateInput) =>
         updateCategory[0]({ variables: { input } }),
     }),
-    [createItem, updateItem, deleteItem, toggleItemActive, updateCategory, brandId]
+    [
+      createItem,
+      updateItem,
+      deleteItem,
+      toggleItemActive,
+      updateCategory,
+      brandId,
+    ]
   );
 
   return {
@@ -523,12 +533,20 @@ export const useMenuFilter = ({
     return { brandId, filter };
   }, [brandId, pointId, orderType, filters]);
 
-  const query = useQuery(GET_FILTERED_PRODUCTS, {
+  // Build query options
+  const queryOptions: any = {
     variables: { input, pointId, orderType },
     skip: !brandId || !pointId,
     errorPolicy: "all",
-    pollInterval: autoUpdate ? 30000 : undefined,
-  });
+  };
+
+  // Only add pollInterval if autoUpdate is true
+  if (autoUpdate) {
+    queryOptions.pollInterval = 30000;
+    queryOptions.notifyOnNetworkStatusChange = true;
+  }
+
+  const query = useQuery(GET_FILTERED_PRODUCTS, queryOptions);
 
   // Apply client-side filtering for search term and other complex filters
   const filteredProducts = useMemo(() => {
@@ -636,37 +654,39 @@ export const useMenuSearch = ({
     }
 
     const searchTermLower = searchTerm.toLowerCase();
-    
-    return searchResults.products.map((product: any) => {
-      let relevanceScore = 0;
-      const name = product.name?.toLowerCase() || "";
-      const description = product.description?.toLowerCase() || "";
 
-      // Name matching (highest priority)
-      if (name === searchTermLower) relevanceScore += 100;
-      else if (name.startsWith(searchTermLower)) relevanceScore += 80;
-      else if (name.includes(searchTermLower)) relevanceScore += 60;
+    return searchResults.products
+      .map((product: any) => {
+        let relevanceScore = 0;
+        const name = product.name?.toLowerCase() || "";
+        const description = product.description?.toLowerCase() || "";
 
-      // Description matching
-      if (description.includes(searchTermLower)) relevanceScore += 30;
+        // Name matching (highest priority)
+        if (name === searchTermLower) relevanceScore += 100;
+        else if (name.startsWith(searchTermLower)) relevanceScore += 80;
+        else if (name.includes(searchTermLower)) relevanceScore += 60;
 
-      // Tag matching
-      product.tags?.forEach((tag: any) => {
-        if (tag.name.toLowerCase().includes(searchTermLower)) {
-          relevanceScore += 20;
+        // Description matching
+        if (description.includes(searchTermLower)) relevanceScore += 30;
+
+        // Tag matching
+        product.tags?.forEach((tag: any) => {
+          if (tag.name.toLowerCase().includes(searchTermLower)) {
+            relevanceScore += 20;
+          }
+        });
+
+        return {
+          ...product,
+          relevanceScore,
+        };
+      })
+      .sort((a: any, b: any) => {
+        if (sortBy === "relevance") {
+          return b.relevanceScore - a.relevanceScore;
         }
+        return 0; // Other sorting handled by useMenuFilter
       });
-
-      return {
-        ...product,
-        relevanceScore,
-      };
-    }).sort((a: any, b: any) => {
-      if (sortBy === "relevance") {
-        return b.relevanceScore - a.relevanceScore;
-      }
-      return 0; // Other sorting handled by useMenuFilter
-    });
   }, [searchResults.products, searchTerm, sortBy]);
 
   return {
@@ -683,24 +703,33 @@ export const useMenuSearch = ({
 // Menu item validation utility
 export const isValidMenuItemConfiguration = (item: any): boolean => {
   if (!item) return false;
-  if (!item.name || typeof item.name !== "string" || item.name.trim().length === 0) return false;
+  if (
+    !item.name ||
+    typeof item.name !== "string" ||
+    item.name.trim().length === 0
+  )
+    return false;
   if (!item.brandId || typeof item.brandId !== "string") return false;
-  if (item.priceSettings && (!item.priceSettings.price || item.priceSettings.price < 0)) return false;
+  if (
+    item.priceSettings &&
+    (!item.priceSettings.price || item.priceSettings.price < 0)
+  )
+    return false;
   return true;
 };
 
 // Category hierarchy validation
 export const isValidCategoryHierarchy = (categories: any[]): boolean => {
   if (!Array.isArray(categories)) return false;
-  
-  const categoryIds = new Set(categories.map(cat => cat.id));
-  
+
+  const categoryIds = new Set(categories.map((cat) => cat.id));
+
   // Check for circular references
   for (const category of categories) {
     if (category.parentId && !categoryIds.has(category.parentId)) {
       return false; // Parent doesn't exist
     }
-    
+
     // Check for circular reference (simplified)
     let current = category;
     const visited = new Set();
@@ -709,11 +738,11 @@ export const isValidCategoryHierarchy = (categories: any[]): boolean => {
         return false; // Circular reference
       }
       visited.add(current.id);
-      current = categories.find(c => c.id === current.parentId);
+      current = categories.find((c) => c.id === current.parentId);
       if (!current) break;
     }
   }
-  
+
   return true;
 };
 
@@ -721,18 +750,21 @@ export const isValidCategoryHierarchy = (categories: any[]): boolean => {
 export const calculateMenuPerformance = (menuData: any) => {
   const products = menuData?.products || [];
   const categories = menuData?.categories || [];
-  
+
   const activeProducts = products.filter((p: any) => p.isActive);
   const totalProducts = products.length;
-  const averageProductsPerCategory = categories.length > 0 ? totalProducts / categories.length : 0;
-  
+  const averageProductsPerCategory =
+    categories.length > 0 ? totalProducts / categories.length : 0;
+
   return {
     totalProducts,
     activeProducts: activeProducts.length,
     inactiveProducts: totalProducts - activeProducts.length,
     totalCategories: categories.length,
-    averageProductsPerCategory: Math.round(averageProductsPerCategory * 100) / 100,
-    activationRate: totalProducts > 0 ? (activeProducts.length / totalProducts) * 100 : 0,
+    averageProductsPerCategory:
+      Math.round(averageProductsPerCategory * 100) / 100,
+    activationRate:
+      totalProducts > 0 ? (activeProducts.length / totalProducts) * 100 : 0,
   };
 };
 
@@ -740,28 +772,30 @@ export const calculateMenuPerformance = (menuData: any) => {
 export const getMenuOptimizationSuggestions = (menuData: any) => {
   const suggestions = [];
   const performance = calculateMenuPerformance(menuData);
-  
+
   if (performance.activationRate < 80) {
     suggestions.push({
       type: "warning",
       message: `${performance.inactiveProducts} products are inactive. Consider removing or reactivating them.`,
     });
   }
-  
+
   if (performance.averageProductsPerCategory > 20) {
     suggestions.push({
       type: "info",
-      message: "Some categories have many products. Consider creating subcategories for better organization.",
+      message:
+        "Some categories have many products. Consider creating subcategories for better organization.",
     });
   }
-  
+
   if (performance.totalCategories === 0 && performance.totalProducts > 0) {
     suggestions.push({
       type: "error",
-      message: "Products exist without categories. Organize products into categories for better navigation.",
+      message:
+        "Products exist without categories. Organize products into categories for better navigation.",
     });
   }
-  
+
   return suggestions;
 };
 
@@ -800,7 +834,7 @@ export const useMenuFilter_DEPRECATED = (args: any) => {
   console.warn(
     "useMenuFilter with legacy parameters is deprecated. Use the new useMenuFilter hook instead."
   );
-  
+
   const filters: MenuFilterInput = {
     searchTerm: args.searchTerm,
     categoryId: args.selectedCategoryId,
@@ -813,7 +847,7 @@ export const useMenuFilter_DEPRECATED = (args: any) => {
     sortBy: args.sortBy,
     sortOrder: args.sortOrder,
   };
-  
+
   return useMenuFilter({
     brandId: args.brandId,
     pointId: args.pointId,
@@ -873,7 +907,9 @@ export const useProductsByTags = (args: any) => {
 };
 
 export const useMenuStatistics = (args: any) => {
-  console.warn("useMenuStatistics is deprecated. Use calculateMenuPerformance utility instead.");
+  console.warn(
+    "useMenuStatistics is deprecated. Use calculateMenuPerformance utility instead."
+  );
   const menuData = useMenuData({
     input: {
       brandId: args.brandId,
@@ -882,11 +918,11 @@ export const useMenuStatistics = (args: any) => {
     },
     skip: args.skip,
   });
-  
+
   const statistics = useMemo(() => {
     return calculateMenuPerformance(menuData.data);
   }, [menuData.data]);
-  
+
   return {
     statistics,
     loading: menuData.loading,

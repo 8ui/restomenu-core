@@ -13,7 +13,6 @@ import {
   RESTOPLACE_ADDRESS_INTEGRATION,
 } from "../graphql/mutations/user";
 import type {
-  UserInput,
   EmployeeInput,
   EmployeesInput,
   AuthenticationInput,
@@ -40,14 +39,14 @@ export const useUserProfile = ({
 
 // Hook for getting user details
 export const useUserDetail = ({
-  input,
+  userId,
   skip = false,
 }: {
-  input: UserInput;
+  userId: string;
   skip?: boolean;
 }) => {
   return useQuery(GET_USER_DETAIL, {
-    variables: { input },
+    variables: { input: { id: userId } },
     skip,
     errorPolicy: "all",
   });
