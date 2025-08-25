@@ -401,10 +401,31 @@ export enum NearType {
   Before = 'BEFORE'
 }
 
+export type OrderConnection = {
+  __typename?: 'OrderConnection';
+  edges: Array<OrderEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type OrderConnectionInput = {
+  brandId: Scalars['Uuid']['input'];
+  filter?: InputMaybe<OrdersFilterInput>;
+  pagination?: InputMaybe<PaginationOneOfInput>;
+  sort?: InputMaybe<Sort>;
+  sortStrategy?: InputMaybe<OrderSortStrategy>;
+};
+
 export enum OrderCreatorType {
   Customer = 'CUSTOMER',
   Employee = 'EMPLOYEE'
 }
+
+export type OrderEdge = {
+  __typename?: 'OrderEdge';
+  cursor: Scalars['String']['output'];
+  order: OrdersUnion;
+};
 
 export type OrderInput = {
   brandId: Scalars['Uuid']['input'];
@@ -516,9 +537,12 @@ export enum OrderType {
 }
 
 export type OrdersFilterInput = {
+  creatorEmployeesId?: InputMaybe<Array<Scalars['Uuid']['input']>>;
   dueTime?: InputMaybe<DateTimeRangeInput>;
   ids?: InputMaybe<Array<Scalars['Uuid']['input']>>;
   pointsId?: InputMaybe<Array<Scalars['Uuid']['input']>>;
+  priceTotalFrom?: InputMaybe<Scalars['Int53']['input']>;
+  priceTotalTo?: InputMaybe<Scalars['Int53']['input']>;
   statuses?: InputMaybe<Array<OrderStatus>>;
   types?: InputMaybe<Array<OrderType>>;
 };
@@ -531,6 +555,28 @@ export type OrdersInput = {
 };
 
 export type OrdersUnion = OrderPreOrder;
+
+export type PageInfo = {
+  __typename?: 'PageInfo';
+  cursorEnd?: Maybe<Scalars['String']['output']>;
+  cursorStart?: Maybe<Scalars['String']['output']>;
+  hasNextPage: Scalars['Boolean']['output'];
+};
+
+export type PaginationBackwardInput = {
+  before?: InputMaybe<Scalars['String']['input']>;
+  last: Scalars['Int']['input'];
+};
+
+export type PaginationForwardInput = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  first: Scalars['Int']['input'];
+};
+
+export type PaginationOneOfInput = {
+  backward?: InputMaybe<PaginationBackwardInput>;
+  forward?: InputMaybe<PaginationForwardInput>;
+};
 
 export type Point = {
   __typename?: 'Point';
@@ -1065,6 +1111,7 @@ export type Query = {
   employees?: Maybe<Array<Employee>>;
   me: UserTypesUnion;
   order: OrdersUnion;
+  orderConnection: OrderConnection;
   orders: Array<OrdersUnion>;
   point: Point;
   points?: Maybe<Array<Point>>;
@@ -1128,6 +1175,11 @@ export type QueryEmployeesArgs = {
 
 export type QueryOrderArgs = {
   input: OrderInput;
+};
+
+
+export type QueryOrderConnectionArgs = {
+  input: OrderConnectionInput;
 };
 
 

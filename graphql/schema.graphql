@@ -1,3 +1,5 @@
+directive @oneOf on INPUT_OBJECT
+
 type Query {
   brand(input: BrandInput!): Brand!
   brandBySlug(input: BrandBySlugInput!): Brand!
@@ -11,6 +13,7 @@ type Query {
   employees(input: EmployeesInput!): [Employee!]
   order(input: OrderInput!): OrdersUnion!
   orders(input: OrdersInput!): [OrdersUnion!]!
+  orderConnection(input: OrderConnectionInput!): OrderConnection!
   point(input: PointInput!): Point!
   points(input: PointsInput!): [Point!]
   product(input: ProductInput!): Product!
@@ -524,6 +527,9 @@ input OrdersFilterInput {
   types: [OrderType!]
   statuses: [OrderStatus!]
   dueTime: DateTimeRangeInput
+  creatorEmployeesId: [Uuid!]
+  priceTotalFrom: Int53
+  priceTotalTo: Int53
 }
 
 input DateTimeRangeInput {
@@ -534,6 +540,46 @@ input DateTimeRangeInput {
 enum OrderSortStrategy {
   DUE_TIME
   NUMBER
+}
+
+input OrderConnectionInput {
+  brandId: Uuid!
+  filter: OrdersFilterInput
+  sortStrategy: OrderSortStrategy
+  sort: Sort
+  pagination: PaginationOneOfInput
+}
+
+input PaginationOneOfInput {
+  forward: PaginationForwardInput
+  backward: PaginationBackwardInput
+}
+
+input PaginationForwardInput {
+  first: Int!
+  after: String
+}
+
+input PaginationBackwardInput {
+  last: Int!
+  before: String
+}
+
+type OrderConnection {
+  totalCount: Int!
+  edges: [OrderEdge!]!
+  pageInfo: PageInfo!
+}
+
+type OrderEdge {
+  cursor: String!
+  order: OrdersUnion!
+}
+
+type PageInfo {
+  cursorStart: String
+  cursorEnd: String
+  hasNextPage: Boolean!
 }
 
 input PointInput {
