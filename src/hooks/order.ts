@@ -146,7 +146,7 @@ export const useActiveOrders = ({
   skip?: boolean;
 }) => {
   return useQuery(GET_ACTIVE_ORDERS, {
-    variables: { pointId },
+    variables: { pointId, brandId },
     skip,
     pollInterval,
     errorPolicy: "all",
@@ -156,18 +156,20 @@ export const useActiveOrders = ({
 
 // Hook for getting order history
 export const useOrderHistory = ({
-  userId,
+  brandId,
+  creatorEmployeesId,
   limit = 20,
   offset = 0,
   skip = false,
 }: {
-  userId: string;
+  brandId: string;
+  creatorEmployeesId: string[];
   limit?: number;
   offset?: number;
   skip?: boolean;
 }) => {
   return useQuery(GET_USER_ORDER_HISTORY, {
-    variables: { userId, limit, offset },
+    variables: { brandId, creatorEmployeesId, limit, offset },
     skip,
     errorPolicy: "all",
   });

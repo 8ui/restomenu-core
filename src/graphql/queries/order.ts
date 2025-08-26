@@ -110,9 +110,19 @@ export const GET_ORDERS_LIST = gql`
 
 // Get user's order history
 export const GET_USER_ORDER_HISTORY = gql`
-  query GetUserOrderHistory($userId: Uuid!, $limit: Int, $offset: Int) {
+  query GetUserOrderHistory(
+    $brandId: Uuid!
+    $creatorEmployeesId: [Uuid!]
+    $limit: Int
+    $offset: Int
+  ) {
     orders(
-      input: { filter: { userId: $userId }, limit: $limit, offset: $offset }
+      input: {
+        brandId: $brandId
+        filter: { creatorEmployeesId: $creatorEmployeesId }
+        limit: $limit
+        offset: $offset
+      }
     ) {
       ...OrderWithItems
     }
@@ -123,15 +133,17 @@ export const GET_USER_ORDER_HISTORY = gql`
 // Get orders by point and date range
 export const GET_ORDERS_BY_POINT_AND_DATE = gql`
   query GetOrdersByPointAndDate(
+    $brandId: Uuid!
     $pointId: Uuid!
     $startDate: DateTime!
     $endDate: DateTime!
   ) {
     orders(
       input: {
+        brandId: $brandId
         filter: {
-          pointId: $pointId
-          createdAt: { gte: $startDate, lte: $endDate }
+          pointsId: [$pointId]
+          dueTime: { from: $startDate, to: $endDate }
         }
       }
     ) {
@@ -143,10 +155,14 @@ export const GET_ORDERS_BY_POINT_AND_DATE = gql`
 
 // Get active orders for a point
 export const GET_ACTIVE_ORDERS = gql`
-  query GetActiveOrders($pointId: Uuid!) {
+  query GetActiveOrders($brandId: Uuid!, $pointId: Uuid!) {
     orders(
       input: {
-        filter: { pointId: $pointId, status: [PENDING, IN_PROGRESS, READY] }
+        brandId: $brandId
+        filter: {
+          pointsId: [$pointId]
+          statuses: [NEW, ACCEPTED, PREPARED, READY]
+        }
       }
     ) {
       ...OrderWithItems
